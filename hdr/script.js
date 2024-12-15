@@ -1,14 +1,39 @@
+import {
+  vec3,
+  mat4,
+} from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
+
 // Clear color for GPURenderPassDescriptor
 const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 
 // Vertex data for triangle
-// Each vertex has 8 values representing position and color: X Y Z W R G B A
-
+const vertexDataSize = 4*4 + 4*4; // position + color
 const vertices = new Float32Array([
   0.0, 0.6, 0, 1, 1, 1, 1, 1,
   -0.5, -0.6, 0, 1, 1, 1, 1, 1,
   0.5, -0.6, 0, 1, 5, 5, 5, 1
 ]);
+const vertexCount = vertices.byteLength / vertexDataSize;
+
+function makeInstance(offset, scale, rotDeg, tint) {
+  const m = mat4.create();
+  mat4.identity(m);
+  mat4.translate(m, [offset[0], offset[1], 0], m);
+  mat4.rotate(m, [0, 0, 1], rotDeg/360*Math.PI*2, m);
+  mat4.scale(m, [scale[0], scale[1], 1], m);
+  mat4.transpose(m, m); // transpose to column-major for GPU
+  return [...m, ...tint];
+}
+
+const instanceSize = 4*16 + 4*4; // tansform(mat4x4f) + tint(vec4f)
+const instances = new Float32Array([
+  ...makeInstance([0, 0], [1, 1], 0, [1, 1, 1, 1]),
+  ...makeInstance([0.5, 0.5], [0.5, 0.5], 0, [1, 0, 0, 1]),
+  ...makeInstance([-0.5, -0.5], [0.5, 0.5], -30, [0, 1, 0, 1]),
+  ...makeInstance([1, 0], [0.5, 0.5], 45, [0, 0, 1, 1]),
+  ...makeInstance([-1, 0], [0.5, 0.5], 90, [1, 1, 0, 1]),
+]);
+const instanceCount = instances.byteLength / instanceSize;
 
 // Main function
 async function init() {
@@ -65,23 +90,63 @@ async function init() {
   // Copy the vertex data over to the GPUBuffer using the writeBuffer() utility function
   device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);
 
+  const instanceBuffer = device.createBuffer({
+    size: instances.byteLength,
+    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+  });
+
+  device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
+
   // 5: Create a GPUVertexBufferLayout and GPURenderPipelineDescriptor to provide a definition of our render pipline
-  const vertexBuffers = [{
-    attributes: [
-      {
-        shaderLocation: 0, // position
-        offset: 0,
-        format: 'float32x4'
-      },
-      {
-        shaderLocation: 1, // color
-        offset: 16,
-        format: 'float32x4'
-      },
-    ],
-    arrayStride: 32,
-    stepMode: 'vertex'
-  }];
+  const vertexBuffers = [
+    {
+      attributes: [
+        {
+          shaderLocation: 0, // position
+          offset: 0,
+          format: 'float32x4'
+        },
+        {
+          shaderLocation: 1, // color
+          offset: 4 * 4,
+          format: 'float32x4'
+        },
+      ],
+      arrayStride: vertexDataSize,
+      stepMode: 'vertex'
+    },
+    {
+      attributes: [
+        {
+          shaderLocation: 2, // transform_v1
+          offset: 0,
+          format: 'float32x4'
+        },
+        {
+          shaderLocation: 3, // transform_v2
+          offset: 4 * 4,
+          format: 'float32x4'
+        },
+        {
+          shaderLocation: 4, // transform_v3
+          offset: 8 * 4,
+          format: 'float32x4'
+        },
+        {
+          shaderLocation: 5, // transform_v4
+          offset: 12 * 4,
+          format: 'float32x4'
+        },
+        {
+          shaderLocation: 6, // tint
+          offset: 16 * 4,
+          format: 'float32x4'
+        },
+      ],
+      arrayStride: instanceSize,
+      stepMode: 'instance'
+    },
+  ];
 
   const pipelineDescriptor = {
     vertex: {
@@ -108,7 +173,33 @@ async function init() {
 
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-  function frame() {
+  const uniformBuffer = device.createBuffer({
+    size: 4 + 4, // time + aspect ratio
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const uniformBindGroup = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: uniformBuffer,
+        },
+      },
+    ],
+  });
+
+  const uniforms = new Float32Array([
+    0, // time
+    canvas.width / canvas.height, // aspect ratio
+  ]);
+
+  function frame(timestamp) {
+    // Update uniforms
+    uniforms[0] = timestamp / 1000;
+    device.queue.writeBuffer(uniformBuffer, 0, uniforms, 0, uniforms.length);
+
     // 7: Create GPUCommandEncoder to issue commands to the GPU
     // Note: render pass descriptor, command encoder, etc. are destroyed after use, fresh one needed for each frame.
     const commandEncoder = device.createCommandEncoder();
@@ -116,12 +207,14 @@ async function init() {
     // 8: Create GPURenderPassDescriptor to tell WebGPU which texture to draw into, then initiate render pass
 
     const renderPassDescriptor = {
-      colorAttachments: [{
-        clearValue: clearColor,
-        loadOp: 'clear',
-        storeOp: 'store',
-        view: context.getCurrentTexture().createView()
-      }]
+      colorAttachments: [
+        {
+          clearValue: clearColor,
+          loadOp: 'clear',
+          storeOp: 'store',
+          view: context.getCurrentTexture().createView()
+        },
+      ],
     };
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
@@ -129,8 +222,10 @@ async function init() {
     // 9: Draw the triangle
 
     passEncoder.setPipeline(renderPipeline);
+    passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
-    passEncoder.draw(3);
+    passEncoder.setVertexBuffer(1, instanceBuffer);
+    passEncoder.draw(vertexCount, instanceCount);
 
     // End the render pass
     passEncoder.end();
