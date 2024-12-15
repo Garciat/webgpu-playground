@@ -6,12 +6,16 @@ import {
 // Clear color for GPURenderPassDescriptor
 const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 
+function makeVertex([x, y], [r, g, b, a]) {
+  return [x, y, 0, 1, r, g, b, a];
+}
+
 // Vertex data for triangle
 const vertexDataSize = 4*4 + 4*4; // position + color
 const vertices = new Float32Array([
-  0.0, 0.6, 0, 1, 1, 1, 1, 1,
-  -0.5, -0.6, 0, 1, 1, 1, 1, 1,
-  0.5, -0.6, 0, 1, 5, 5, 5, 1
+  ...makeVertex([0, 0.6], [1, 1, 1, 1]),
+  ...makeVertex([-0.5, -0.6], [1, 1, 1, 1]),
+  ...makeVertex([0.5, -0.6], [5, 5, 5, 1]),
 ]);
 const vertexCount = vertices.byteLength / vertexDataSize;
 
