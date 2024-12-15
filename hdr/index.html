@@ -9,10 +9,18 @@
     <script src="script.js" defer></script>
 
     <style>
-      body, html {padding: 0; margin: 0; overflow: hidden; height:100%;}
+      :root {
+        color-scheme: light dark;
+      }
+      html, body {
+        margin: 0;      /* remove default margin */
+        height: 100%;   /* make body fill the browser window */
+        display: flex;
+        place-content: center center;
+      }
     </style>
   </head>
   <body style="background-color: red;">
-    <canvas id="gpuCanvas" width="800" height="600"></canvas>
+    <canvas id="gpuCanvas"></canvas>
   </body>
 </html>

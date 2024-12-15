@@ -5,13 +5,12 @@ const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 // Each vertex has 8 values representing position and color: X Y Z W R G B A
 
 const vertices = new Float32Array([
-  0.0,  0.6, 0, 1, 1, 1, 1, 1,
- -0.5, -0.6, 0, 1, 1, 1, 1, 1,
+  0.0, 0.6, 0, 1, 1, 1, 1, 1,
+  -0.5, -0.6, 0, 1, 1, 1, 1, 1,
   0.5, -0.6, 0, 1, 5, 5, 5, 1
 ]);
 
 // Main function
-
 async function init() {
   const textureFormat = 'rgba16float';
 
@@ -29,8 +28,6 @@ async function init() {
     throw Error('Couldn\'t request WebGPU adapter.');
   }
 
-  console.log('Adapter:', adapter);
-
   let device = await adapter.requestDevice();
 
   // 2: Create a shader module from the shaders template literal
@@ -40,8 +37,12 @@ async function init() {
 
   // 3: Get reference to the canvas to render on
   const canvas = document.querySelector('#gpuCanvas');
-  canvas.width = document.body.clientWidth;
-  canvas.height = document.body.clientHeight;
+
+  const devicePixelRatio = window.devicePixelRatio;
+  canvas.style.width = `${document.body.clientWidth}px`;
+  canvas.style.height = `${document.body.clientHeight}px`;
+  canvas.width = canvas.clientWidth * devicePixelRatio;
+  canvas.height = canvas.clientHeight * devicePixelRatio;
 
   const context = canvas.getContext('webgpu');
 
@@ -66,15 +67,18 @@ async function init() {
 
   // 5: Create a GPUVertexBufferLayout and GPURenderPipelineDescriptor to provide a definition of our render pipline
   const vertexBuffers = [{
-    attributes: [{
-      shaderLocation: 0, // position
-      offset: 0,
-      format: 'float32x4'
-    }, {
-      shaderLocation: 1, // color
-      offset: 16,
-      format: 'float32x4'
-    }],
+    attributes: [
+      {
+        shaderLocation: 0, // position
+        offset: 0,
+        format: 'float32x4'
+      },
+      {
+        shaderLocation: 1, // color
+        offset: 16,
+        format: 'float32x4'
+      },
+    ],
     arrayStride: 32,
     stepMode: 'vertex'
   }];
@@ -88,9 +92,11 @@ async function init() {
     fragment: {
       module: shaderModule,
       entryPoint: 'fragment_main',
-      targets: [{
-        format: textureFormat
-      }]
+      targets: [
+        {
+          format: textureFormat
+        },
+      ],
     },
     primitive: {
       topology: 'triangle-list'
@@ -102,34 +108,40 @@ async function init() {
 
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
-  // 7: Create GPUCommandEncoder to issue commands to the GPU
-  // Note: render pass descriptor, command encoder, etc. are destroyed after use, fresh one needed for each frame.
-  const commandEncoder = device.createCommandEncoder();
+  function frame() {
+    // 7: Create GPUCommandEncoder to issue commands to the GPU
+    // Note: render pass descriptor, command encoder, etc. are destroyed after use, fresh one needed for each frame.
+    const commandEncoder = device.createCommandEncoder();
 
-  // 8: Create GPURenderPassDescriptor to tell WebGPU which texture to draw into, then initiate render pass
+    // 8: Create GPURenderPassDescriptor to tell WebGPU which texture to draw into, then initiate render pass
 
-  const renderPassDescriptor = {
-    colorAttachments: [{
-      clearValue: clearColor,
-      loadOp: 'clear',
-      storeOp: 'store',
-      view: context.getCurrentTexture().createView()
-    }]
-  };
+    const renderPassDescriptor = {
+      colorAttachments: [{
+        clearValue: clearColor,
+        loadOp: 'clear',
+        storeOp: 'store',
+        view: context.getCurrentTexture().createView()
+      }]
+    };
 
-  const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
-  // 9: Draw the triangle
+    // 9: Draw the triangle
 
-  passEncoder.setPipeline(renderPipeline);
-  passEncoder.setVertexBuffer(0, vertexBuffer);
-  passEncoder.draw(3);
+    passEncoder.setPipeline(renderPipeline);
+    passEncoder.setVertexBuffer(0, vertexBuffer);
+    passEncoder.draw(3);
 
-  // End the render pass
-  passEncoder.end();
+    // End the render pass
+    passEncoder.end();
 
-  // 10: End frame by passing array of command buffers to command queue for execution
-  device.queue.submit([commandEncoder.finish()]);
+    // 10: End frame by passing array of command buffers to command queue for execution
+    device.queue.submit([commandEncoder.finish()]);
+
+    requestAnimationFrame(frame);
+  }
+
+  requestAnimationFrame(frame);
 }
 
 init();
