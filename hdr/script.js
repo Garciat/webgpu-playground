@@ -173,8 +173,17 @@ async function init() {
 
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
+  // Uniforms
+  const time = new Float32Array(1);
+  const uniforms = new Float32Array(16);
+
+  const timeBuffer = device.createBuffer({
+    size: time.byteLength,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
   const uniformBuffer = device.createBuffer({
-    size: 4 + 4, // time + aspect ratio
+    size: uniforms.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -184,20 +193,34 @@ async function init() {
       {
         binding: 0,
         resource: {
+          buffer: timeBuffer,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
           buffer: uniformBuffer,
         },
       },
     ],
   });
 
-  const uniforms = new Float32Array([
-    0, // time
-    canvas.width / canvas.height, // aspect ratio
-  ]);
+  const aspect = canvas.width / canvas.height;
+  const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
+  const modelViewProjectionMatrix = uniforms.subarray(0, 16);
+
+  function updateTransformationMatrix(timestamp) {
+    const viewMatrix = mat4.identity();
+    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -2), viewMatrix);
+    mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
+  }
 
   function frame(timestamp) {
     // Update uniforms
-    uniforms[0] = timestamp / 1000;
+    time[0] = timestamp / 1000;
+    device.queue.writeBuffer(timeBuffer, 0, time, 0, time.length);
+
+    updateTransformationMatrix(timestamp);
     device.queue.writeBuffer(uniformBuffer, 0, uniforms, 0, uniforms.length);
 
     // 7: Create GPUCommandEncoder to issue commands to the GPU

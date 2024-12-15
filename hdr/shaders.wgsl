@@ -1,8 +1,8 @@
 struct Uniforms {
-  time : f32,
-  aspectRatio : f32,
+  modelViewProjectionMatrix : mat4x4f,
 }
-@binding(0) @group(0) var<uniform> uniforms : Uniforms;
+@group(0) @binding(0) var<uniform> time : f32;
+@group(0) @binding(1) var<uniform> uniforms : Uniforms;
 
 // Locations: buffers.[*].attributes.[*].shaderLocation
 struct VertexIn {
@@ -13,6 +13,10 @@ struct VertexIn {
   @location(4) transform_v3 : vec4f,
   @location(5) transform_v4 : vec4f,
   @location(6) tint : vec4f,
+}
+
+fn vertexTransform(v: VertexIn) -> mat4x4f {
+  return mat4x4f(v.transform_v1, v.transform_v2, v.transform_v3, v.transform_v4);
 }
 
 struct VertexOut {
@@ -29,10 +33,12 @@ fn vertex_main(input: VertexIn) -> VertexOut
 {
   var output : VertexOut;
   output.position =
-    input.position
-    * rotation4x4f(uniforms.time * 0.1)
-    * mat4x4f(input.transform_v1, input.transform_v2, input.transform_v3, input.transform_v4);
-  output.position.x /= uniforms.aspectRatio;
+    uniforms.modelViewProjectionMatrix
+    * (
+      input.position
+      * rotation4x4f(time)
+      * vertexTransform(input)
+    );
   output.color = input.color * input.tint;
   return output;
 }
