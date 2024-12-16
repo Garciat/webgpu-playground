@@ -20,16 +20,15 @@ const vertices = new Float32Array([
 const vertexCount = vertices.byteLength / vertexDataSize;
 
 function makeInstance(offset, scale, rotDeg, tint) {
-  const m = mat4.create();
-  mat4.identity(m);
-  mat4.translate(m, [offset[0], offset[1], 0], m);
-  mat4.rotate(m, [0, 0, 1], rotDeg/360*Math.PI*2, m);
-  mat4.scale(m, [scale[0], scale[1], 1], m);
-  mat4.transpose(m, m); // transpose to column-major for GPU
-  return [...m, ...tint];
+  return [
+    ...[offset[0], offset[1], 0],
+    ...[scale[0], scale[1], 0],
+    ...[0, 0, rotDeg/360*Math.PI*2],
+    ...tint,
+  ];
 }
 
-const instanceSize = 4*16 + 4*4; // tansform(mat4x4f) + tint(vec4f)
+const instanceSize = 3*4 + 3*4 + 3*4 + 4*4; // translation + scale + rotation + tint
 const instances = new Float32Array([
   ...makeInstance([0, 0], [1, 1], 0, [1, 1, 1, 1]),
   ...makeInstance([0.5, 0.5], [0.5, 0.5], 0, [1, 0, 0, 1]),
@@ -122,29 +121,25 @@ async function init() {
     {
       attributes: [
         {
-          shaderLocation: 2, // transform_v1
+          shaderLocation: 2, // translation
           offset: 0,
-          format: 'float32x4'
+          format: 'float32x3',
+
         },
         {
-          shaderLocation: 3, // transform_v2
-          offset: 4 * 4,
-          format: 'float32x4'
+          shaderLocation: 3, // scale
+          offset: 3 * 4,
+          format: 'float32x3',
         },
         {
-          shaderLocation: 4, // transform_v3
-          offset: 8 * 4,
-          format: 'float32x4'
+          shaderLocation: 4, // rotation
+          offset: 3 * 4 + 3 * 4,
+          format: 'float32x3',
         },
         {
-          shaderLocation: 5, // transform_v4
-          offset: 12 * 4,
-          format: 'float32x4'
-        },
-        {
-          shaderLocation: 6, // tint
-          offset: 16 * 4,
-          format: 'float32x4'
+          shaderLocation: 5, // tint
+          offset: 3 * 4 + 3 * 4 + 3 * 4,
+          format: 'float32x4',
         },
       ],
       arrayStride: instanceSize,

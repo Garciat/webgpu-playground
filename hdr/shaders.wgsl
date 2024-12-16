@@ -6,17 +6,14 @@ struct Uniforms {
 
 // Locations: buffers.[*].attributes.[*].shaderLocation
 struct VertexIn {
+  // vertex
   @location(0) position : vec4f,
   @location(1) color : vec4f,
-  @location(2) transform_v1 : vec4f,
-  @location(3) transform_v2 : vec4f,
-  @location(4) transform_v3 : vec4f,
-  @location(5) transform_v4 : vec4f,
-  @location(6) tint : vec4f,
-}
-
-fn vertexTransform(v: VertexIn) -> mat4x4f {
-  return mat4x4f(v.transform_v1, v.transform_v2, v.transform_v3, v.transform_v4);
+  // instance
+  @location(2) translation : vec3f,
+  @location(3) scale : vec3f,
+  @location(4) rotation : vec3f,
+  @location(5) tint : vec4f,
 }
 
 struct VertexOut {
@@ -36,8 +33,9 @@ fn vertex_main(input: VertexIn) -> VertexOut
     uniforms.modelViewProjectionMatrix
     * (
       input.position
-      * rotation4x4f(time)
-      * vertexTransform(input)
+      * scale4x4f(input.scale)
+      * rotation4x4f(input.rotation.z + time)
+      * translation4x4f(input.translation)
     );
   output.color = input.color * input.tint;
   return output;
@@ -59,5 +57,23 @@ fn rotation4x4f(angle: f32) -> mat4x4f {
     vec4f(s, c, 0.0, 0.0),
     vec4f(0.0, 0.0, 1.0, 0.0),
     vec4f(0.0, 0.0, 0.0, 1.0),
+  );
+}
+
+fn translation4x4f(t: vec3f) -> mat4x4f {
+  return mat4x4f(
+    vec4f(1.0, 0.0, 0.0, t.x),
+    vec4f(0.0, 1.0, 0.0, t.y),
+    vec4f(0.0, 0.0, 1.0, t.z),
+    vec4f(0.0, 0.0, 0.0, 1.0)
+  );
+}
+
+fn scale4x4f(s: vec3f) -> mat4x4f {
+  return mat4x4f(
+    vec4f(s.x, 0.0, 0.0, 0.0),
+    vec4f(0.0, s.y, 0.0, 0.0),
+    vec4f(0.0, 0.0, s.z, 0.0),
+    vec4f(0.0, 0.0, 0.0, 1.0)
   );
 }
