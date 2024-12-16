@@ -32,11 +32,12 @@ fn vertex_main(input: VertexIn) -> VertexOut
   output.position =
     uniforms.modelViewProjectionMatrix
     * (
-      input.position
-      * scale4x4f(input.scale)
-      * rotation4x4f(vec3f(0.0, time, 0.0))
-      * rotation4x4f(input.rotation)
+      identity4x4()
       * translation4x4f(input.translation)
+      * rotation4x4f(input.rotation)
+      * rotation4x4f(vec3f(0.0, time, 0.0))
+      * scale4x4f(input.scale)
+      * input.position
     );
   output.color = input.color * input.tint;
   return output;
@@ -63,10 +64,10 @@ fn rotation4x4f(a: vec3f) -> mat4x4f {
 
 fn translation4x4f(t: vec3f) -> mat4x4f {
   return mat4x4f(
-    vec4f(1.0, 0.0, 0.0, t.x),
-    vec4f(0.0, 1.0, 0.0, t.y),
-    vec4f(0.0, 0.0, 1.0, t.z),
-    vec4f(0.0, 0.0, 0.0, 1.0)
+    vec4f(1.0, 0.0, 0.0, 0.0),
+    vec4f(0.0, 1.0, 0.0, 0.0),
+    vec4f(0.0, 0.0, 1.0, 0.0),
+    vec4f(t.x, t.y, t.z, 1.0)
   );
 }
 
@@ -77,4 +78,8 @@ fn scale4x4f(s: vec3f) -> mat4x4f {
     vec4f(0.0, 0.0, s.z, 0.0),
     vec4f(0.0, 0.0, 0.0, 1.0)
   );
+}
+
+fn identity4x4() -> mat4x4f {
+  return scale4x4f(vec3f(1.0, 1.0, 1.0));
 }
