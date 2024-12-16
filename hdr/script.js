@@ -19,7 +19,7 @@ const vertexDataSize = 4 * 4 + 4 * 4 + 4 * 3; // position + color + normal
 const vertices = new Float32Array([
   ...makeVertex([0, 0.6], [1, 1, 1, 1]),
   ...makeVertex([-0.5, -0.6], [1, 1, 1, 1]),
-  ...makeVertex([0.5, -0.6], [5, 5, 5, 1]),
+  ...makeVertex([0.5, -0.6], [1, 1, 1, 1]),
 ]);
 const vertexCount = vertices.byteLength / vertexDataSize;
 
@@ -47,6 +47,9 @@ const instances = new Float32Array([
   ...makeInstance([-0.5, -0.5], [0.5, 0.5], -30, [0, 1, 0, 1]),
   ...makeInstance([1, 0], [0.5, 0.5], 45, [0, 0, 1, 1]),
   ...makeInstance([-1, 0], [0.5, 0.5], 90, [1, 1, 0, 1]),
+  ...makeInstance([0, 1], [0.5, 0.5], 135, [1, 0, 1, 1]),
+  ...makeInstance([0, -1], [0.5, 0.5], 180, [0, 1, 1, 1]),
+  ...makeInstance([1, 1], [0.5, 0.5], 225, [1, 1, 1, 1]),
 ]);
 const instanceCount = instances.byteLength / instanceSize;
 
@@ -217,7 +220,8 @@ async function init() {
       ],
     },
     primitive: {
-      topology: 'triangle-list'
+      topology: 'triangle-list',
+      // cullMode: 'back',
     },
     layout: 'auto',
     // Enable depth testing so that the fragment closest to the camera

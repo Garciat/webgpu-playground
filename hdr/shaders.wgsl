@@ -1,3 +1,23 @@
+struct PointLight {
+  position : vec3f,
+  color : vec3f,
+}
+
+struct LightStorage {
+  pointCount : u32,
+  point : array<PointLight, 1>,
+}
+
+var<private> lights: LightStorage = LightStorage(
+  1,
+  array(
+    PointLight(
+      vec3f(0.0, 0.0, -4.0),
+      vec3f(5.0, 5.0, 5.0),
+    ),
+  )
+);
+
 struct Uniforms {
   projectionMatrix : mat4x4f,
 }
@@ -46,8 +66,9 @@ fn mv_inv_matrix(instance: InstanceIn) -> mat4x4f {
 
 struct VertexOut {
   @builtin(position) position : vec4f,
-  @location(0) color : vec4f,
-  @location(1) normal : vec3f,
+  @location(0) worldPosition : vec4f,
+  @location(1) color : vec4f,
+  @location(2) normal : vec3f,
 }
 
 struct FragmentOut {
@@ -61,6 +82,7 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
 
   var output : VertexOut;
   output.position = uniforms.projectionMatrix * mv_matrix(instance) * model.position;
+  output.worldPosition = mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
   output.normal = (mv_inv_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
   return output;
@@ -69,9 +91,28 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
 @fragment
 fn fragment_main(fragData: VertexOut) -> FragmentOut
 {
+  let baseColor = fragData.color;
+
+  let N = normalize(fragData.normal);
+  var surfaceColor = vec3f(0);
+
+  // Loop over the scene point lights.
+  for (var i = 0u; i < lights.pointCount; i++) {
+    let worldToLight = lights.point[i].position - fragData.worldPosition.xyz;
+    let dist = length(worldToLight);
+    let dir = normalize(worldToLight);
+
+    // Determine the contribution of this light to the surface color.
+    let radiance = lights.point[i].color * (1 / pow(dist, 2));
+    let nDotL = max(dot(N, dir), 0);
+
+    // Accumulate light contribution to the surface color.
+    surfaceColor += baseColor.rgb * radiance * nDotL;
+  }
+
   var output : FragmentOut;
-  // output.color = fragData.color;
+  output.color = vec4(surfaceColor, baseColor.a);
   // debug normal
-  output.color = vec4<f32>(fragData.normal * 0.5 + 0.5, 1.0);
+  // output.color = vec4f(fragData.normal * 0.5 + 0.5, 1.0);
   return output;
 }
