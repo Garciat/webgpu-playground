@@ -165,8 +165,21 @@ async function init() {
     primitive: {
       topology: 'triangle-list'
     },
-    layout: 'auto'
+    layout: 'auto',
+    // Enable depth testing so that the fragment closest to the camera
+    // is rendered in front.
+    depthStencil: {
+      depthWriteEnabled: true,
+      depthCompare: 'less',
+      format: 'depth24plus',
+    },
   };
+
+  const depthTexture = device.createTexture({
+    size: [canvas.width, canvas.height],
+    format: 'depth24plus',
+    usage: GPUTextureUsage.RENDER_ATTACHMENT,
+  });
 
   // 6: Create the actual render pipeline
 
@@ -237,6 +250,13 @@ async function init() {
           view: context.getCurrentTexture().createView()
         },
       ],
+      depthStencilAttachment: {
+        view: depthTexture.createView(),
+
+        depthClearValue: 1.0,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      },
     };
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
