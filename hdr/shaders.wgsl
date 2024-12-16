@@ -34,7 +34,8 @@ fn vertex_main(input: VertexIn) -> VertexOut
     * (
       input.position
       * scale4x4f(input.scale)
-      * rotation4x4f(input.rotation.z + time)
+      * rotation4x4f(vec3f(0.0, time, 0.0))
+      * rotation4x4f(input.rotation)
       * translation4x4f(input.translation)
     );
   output.color = input.color * input.tint;
@@ -49,14 +50,14 @@ fn fragment_main(fragData: VertexOut) -> FragmentOut
   return output;
 }
 
-fn rotation4x4f(angle: f32) -> mat4x4f {
-  let c = cos(angle);
-  let s = sin(angle);
+fn rotation4x4f(a: vec3f) -> mat4x4f {
+  var c = vec3f(cos(a.x), cos(a.y), cos(a.z));
+  var s = vec3f(sin(a.x), sin(a.y), sin(a.z));
   return mat4x4f(
-    vec4f(c, -s, 0.0, 0.0),
-    vec4f(s, c, 0.0, 0.0),
-    vec4f(0.0, 0.0, 1.0, 0.0),
-    vec4f(0.0, 0.0, 0.0, 1.0),
+    vec4f(c.y * c.z, c.y * s.z, -s.y, 0.0),
+    vec4f(s.x * s.y * c.z - c.x * s.z, s.x * s.y * s.z + c.x * c.z, s.x * c.y, 0.0),
+    vec4f(c.x * s.y * c.z + s.x * s.z, c.x * s.y * s.z - s.x * c.z, c.x * c.y, 0.0),
+    vec4f(0.0, 0.0, 0.0, 1.0)
   );
 }
 
