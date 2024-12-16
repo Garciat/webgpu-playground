@@ -1,5 +1,5 @@
 struct Uniforms {
-  viewProjectionMatrix : mat4x4f,
+  projectionMatrix : mat4x4f,
 }
 @group(0) @binding(0) var<uniform> time : f32;
 @group(0) @binding(1) var<uniform> uniforms : Uniforms;
@@ -12,32 +12,32 @@ struct VertexIn {
 struct InstanceIn {
   @location(2) tint : vec4f,
 
-  @location(3) mvpMatrix0 : vec4f,
-  @location(4) mvpMatrix1 : vec4f,
-  @location(5) mvpMatrix2 : vec4f,
-  @location(6) mvpMatrix3 : vec4f,
+  @location(3) mvMatrix0 : vec4f,
+  @location(4) mvMatrix1 : vec4f,
+  @location(5) mvMatrix2 : vec4f,
+  @location(6) mvMatrix3 : vec4f,
 
-  @location(7) mvpInvMatrix0 : vec4f,
-  @location(8) mvpInvMatrix1 : vec4f,
-  @location(9) mvpInvMatrix2 : vec4f,
-  @location(10) mvpInvMatrix3 : vec4f,
+  @location(7) mvInvMatrix0 : vec4f,
+  @location(8) mvInvMatrix1 : vec4f,
+  @location(9) mvInvMatrix2 : vec4f,
+  @location(10) mvInvMatrix3 : vec4f,
 }
 
-fn mvp_matrix(instance: InstanceIn) -> mat4x4f {
+fn mv_matrix(instance: InstanceIn) -> mat4x4f {
   return mat4x4f(
-    instance.mvpMatrix0,
-    instance.mvpMatrix1,
-    instance.mvpMatrix2,
-    instance.mvpMatrix3,
+    instance.mvMatrix0,
+    instance.mvMatrix1,
+    instance.mvMatrix2,
+    instance.mvMatrix3,
   );
 }
 
-fn mvp_inv_matrix(instance: InstanceIn) -> mat4x4f {
+fn mv_inv_matrix(instance: InstanceIn) -> mat4x4f {
   return mat4x4f(
-    instance.mvpInvMatrix0,
-    instance.mvpInvMatrix1,
-    instance.mvpInvMatrix2,
-    instance.mvpInvMatrix3,
+    instance.mvInvMatrix0,
+    instance.mvInvMatrix1,
+    instance.mvInvMatrix2,
+    instance.mvInvMatrix3,
   );
 }
 
@@ -54,10 +54,9 @@ struct FragmentOut {
 fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
 {
   let _t = time; // keep the compiler happy
-  var _m = uniforms.viewProjectionMatrix;
 
   var output : VertexOut;
-  output.position = mvp_matrix(instance) * model.position;
+  output.position = uniforms.projectionMatrix * mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
   return output;
 }

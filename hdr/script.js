@@ -25,14 +25,14 @@ function makeInstance(offset, scale, rotDeg, tint) {
   mat4.scale(model, vec3.fromValues(scale[0], scale[1], 1), model);
   mat4.rotateZ(model, rotDeg / 360 * Math.PI * 2, model);
 
-  const mvp = mat4.create();
-  const mvp_inv = mat4.create();
+  const mv = mat4.create();
+  const mv_inv = mat4.create();
 
   return [
     ...tint,
     ...model,
-    ...mvp,
-    ...mvp_inv,
+    ...mv,
+    ...mv_inv,
   ];
 }
 
@@ -50,10 +50,10 @@ function getInstanceParts(i) {
   const instance = instances.subarray(i * instanceSize / 4, (i + 1) * instanceSize / 4);
   const tint = instance.subarray(0, 4);
   const model = instance.subarray(4, 20);
-  const mvp = instance.subarray(20, 36);
-  const mvp_inv = instance.subarray(36, 52);
+  const mv = instance.subarray(20, 36);
+  const mv_inv = instance.subarray(36, 52);
 
-  return { tint, model, mvp, mvp_inv };
+  return { tint, model, mv, mv_inv };
 }
 
 // Main function
@@ -144,42 +144,42 @@ async function init() {
           format: 'float32x4',
         },
         {
-          shaderLocation: 3, // mvpMatrix0
+          shaderLocation: 3, // mvMatrix0
           offset: 4 * 16 + 4 * 4,
           format: 'float32x4',
         },
         {
-          shaderLocation: 4, // mvpMatrix1
+          shaderLocation: 4, // mvMatrix1
           offset: 4 * 16 + 4 * 8,
           format: 'float32x4',
         },
         {
-          shaderLocation: 5, // mvpMatrix2
+          shaderLocation: 5, // mvMatrix2
           offset: 4 * 16 + 4 * 12,
           format: 'float32x4',
         },
         {
-          shaderLocation: 6, // mvpMatrix3
+          shaderLocation: 6, // mvMatrix3
           offset: 4 * 16 + 4 * 16,
           format: 'float32x4',
         },
         {
-          shaderLocation: 7, // mvpInvMatrix0
+          shaderLocation: 7, // mvInvMatrix0
           offset: 4 * 16 + 4 * 20,
           format: 'float32x4',
         },
         {
-          shaderLocation: 8, // mvpInvMatrix1
+          shaderLocation: 8, // mvInvMatrix1
           offset: 4 * 16 + 4 * 24,
           format: 'float32x4',
         },
         {
-          shaderLocation: 9, // mvpInvMatrix2
+          shaderLocation: 9, // mvInvMatrix2
           offset: 4 * 16 + 4 * 28,
           format: 'float32x4',
         },
         {
-          shaderLocation: 10, // mvpInvMatrix3
+          shaderLocation: 10, // mvInvMatrix3
           offset: 4 * 16 + 4 * 32,
           format: 'float32x4',
         },
@@ -265,32 +265,34 @@ async function init() {
 
   const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
 
-  function updateUniforms(time) {
+  function updateCamera(time) {
     mat4.identity(viewMatrix);
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -3), viewMatrix);
     mat4.rotateY(viewMatrix, time, viewMatrix);
+  }
 
+  function updateUniforms(time) {
     mat4.identity(uniforms);
     mat4.multiply(uniforms, projectionMatrix, uniforms);
-    mat4.multiply(uniforms, viewMatrix, uniforms);
   }
 
   function updateInstances(time) {
     for (let i = 0; i < instanceCount; i++) {
-      const { tint, model, mvp, mvp_inv } = getInstanceParts(i);
+      const { tint, model, mv, mv_inv } = getInstanceParts(i);
 
-      mat4.identity(mvp);
-      mat4.multiply(mvp, projectionMatrix, mvp);
-      mat4.multiply(mvp, viewMatrix, mvp);
-      mat4.multiply(mvp, model, mvp);
-      mat4.rotateY(mvp, time, mvp);
+      mat4.identity(mv);
+      mat4.multiply(mv, viewMatrix, mv);
+      mat4.multiply(mv, model, mv);
+      mat4.rotateY(mv, time, mv);
 
-      mat4.invert(mvp, mvp_inv);
+      mat4.invert(mv, mv_inv);
     }
   }
 
   function frame(timestamp) {
     const time = timestamp / 1000;
+
+    updateCamera(time);
 
     // Update uniforms
     timeUniform[0] = time;
@@ -299,6 +301,7 @@ async function init() {
     updateUniforms(time);
     device.queue.writeBuffer(uniformBuffer, 0, uniforms, 0, uniforms.length);
 
+    // Update instances
     updateInstances(time);
     device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
 
