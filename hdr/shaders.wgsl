@@ -4,23 +4,26 @@ struct Uniforms {
 @group(0) @binding(0) var<uniform> time : f32;
 @group(0) @binding(1) var<uniform> uniforms : Uniforms;
 
+const LocVertex = 0;
 struct VertexIn {
-  @location(0) position : vec4f,
-  @location(1) color : vec4f,
+  @location(LocVertex+0) position : vec4f,
+  @location(LocVertex+1) color : vec4f,
+  @location(LocVertex+2) normal : vec3f,
 }
 
+const LocInstance = 3;
 struct InstanceIn {
-  @location(2) tint : vec4f,
+  @location(LocInstance+0) tint : vec4f,
 
-  @location(3) mvMatrix0 : vec4f,
-  @location(4) mvMatrix1 : vec4f,
-  @location(5) mvMatrix2 : vec4f,
-  @location(6) mvMatrix3 : vec4f,
+  @location(LocInstance+1) mvMatrix0 : vec4f,
+  @location(LocInstance+2) mvMatrix1 : vec4f,
+  @location(LocInstance+3) mvMatrix2 : vec4f,
+  @location(LocInstance+4) mvMatrix3 : vec4f,
 
-  @location(7) mvInvMatrix0 : vec4f,
-  @location(8) mvInvMatrix1 : vec4f,
-  @location(9) mvInvMatrix2 : vec4f,
-  @location(10) mvInvMatrix3 : vec4f,
+  @location(LocInstance+5) mvInvMatrix0 : vec4f,
+  @location(LocInstance+6) mvInvMatrix1 : vec4f,
+  @location(LocInstance+7) mvInvMatrix2 : vec4f,
+  @location(LocInstance+8) mvInvMatrix3 : vec4f,
 }
 
 fn mv_matrix(instance: InstanceIn) -> mat4x4f {
@@ -44,6 +47,7 @@ fn mv_inv_matrix(instance: InstanceIn) -> mat4x4f {
 struct VertexOut {
   @builtin(position) position : vec4f,
   @location(0) color : vec4f,
+  @location(1) normal : vec3f,
 }
 
 struct FragmentOut {
@@ -58,6 +62,7 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
   var output : VertexOut;
   output.position = uniforms.projectionMatrix * mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
+  output.normal = (mv_inv_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
   return output;
 }
 
@@ -65,6 +70,8 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
 fn fragment_main(fragData: VertexOut) -> FragmentOut
 {
   var output : FragmentOut;
-  output.color = fragData.color;
+  // output.color = fragData.color;
+  // debug normal
+  output.color = vec4<f32>(fragData.normal * 0.5 + 0.5, 1.0);
   return output;
 }

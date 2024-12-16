@@ -7,11 +7,15 @@ import {
 const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 
 function makeVertex([x, y], [r, g, b, a]) {
-  return [x, y, 0, 1, r, g, b, a];
+  return [
+    ...[x, y, 0, 1], // position
+    ...[r, g, b, a], // color
+    ...[0, 0, -1], // normal
+  ];
 }
 
 // Vertex data for triangle
-const vertexDataSize = 4 * 4 + 4 * 4; // position + color
+const vertexDataSize = 4 * 4 + 4 * 4 + 4 * 3; // position + color + normal
 const vertices = new Float32Array([
   ...makeVertex([0, 0.6], [1, 1, 1, 1]),
   ...makeVertex([-0.5, -0.6], [1, 1, 1, 1]),
@@ -118,19 +122,27 @@ async function init() {
 
   device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
 
+  const LocVertex = 0;
+  const LocInstance = 3;
+
   // 5: Create a GPUVertexBufferLayout and GPURenderPipelineDescriptor to provide a definition of our render pipline
   const vertexBuffers = [
     {
       attributes: [
         {
-          shaderLocation: 0, // position
+          shaderLocation: LocVertex+0, // position
           offset: 0,
           format: 'float32x4'
         },
         {
-          shaderLocation: 1, // color
+          shaderLocation: LocVertex+1, // color
           offset: 4 * 4,
           format: 'float32x4'
+        },
+        {
+          shaderLocation: LocVertex+2, // normal
+          offset: 4 * 8,
+          format: 'float32x3'
         },
       ],
       arrayStride: vertexDataSize,
@@ -139,47 +151,47 @@ async function init() {
     {
       attributes: [
         {
-          shaderLocation: 2, // tint
+          shaderLocation: LocInstance+0, // tint
           offset: 0,
           format: 'float32x4',
         },
         {
-          shaderLocation: 3, // mvMatrix0
+          shaderLocation: LocInstance+1, // mvMatrix0
           offset: 4 * 16 + 4 * 4,
           format: 'float32x4',
         },
         {
-          shaderLocation: 4, // mvMatrix1
+          shaderLocation: LocInstance+2, // mvMatrix1
           offset: 4 * 16 + 4 * 8,
           format: 'float32x4',
         },
         {
-          shaderLocation: 5, // mvMatrix2
+          shaderLocation: LocInstance+3, // mvMatrix2
           offset: 4 * 16 + 4 * 12,
           format: 'float32x4',
         },
         {
-          shaderLocation: 6, // mvMatrix3
+          shaderLocation: LocInstance+4, // mvMatrix3
           offset: 4 * 16 + 4 * 16,
           format: 'float32x4',
         },
         {
-          shaderLocation: 7, // mvInvMatrix0
+          shaderLocation: LocInstance+5, // mvInvMatrix0
           offset: 4 * 16 + 4 * 20,
           format: 'float32x4',
         },
         {
-          shaderLocation: 8, // mvInvMatrix1
+          shaderLocation: LocInstance+6, // mvInvMatrix1
           offset: 4 * 16 + 4 * 24,
           format: 'float32x4',
         },
         {
-          shaderLocation: 9, // mvInvMatrix2
+          shaderLocation: LocInstance+7, // mvInvMatrix2
           offset: 4 * 16 + 4 * 28,
           format: 'float32x4',
         },
         {
-          shaderLocation: 10, // mvInvMatrix3
+          shaderLocation: LocInstance+8, // mvInvMatrix3
           offset: 4 * 16 + 4 * 32,
           format: 'float32x4',
         },
