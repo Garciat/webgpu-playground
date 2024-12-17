@@ -284,7 +284,7 @@ async function init() {
   function updateCamera(time) {
     mat4.identity(viewMatrix);
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -3), viewMatrix);
-    mat4.rotateY(viewMatrix, time, viewMatrix);
+    mat4.rotateY(viewMatrix, -time * 1/3, viewMatrix);
   }
 
   function updateUniforms(time) {
