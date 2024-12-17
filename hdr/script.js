@@ -6,21 +6,66 @@ import {
 // Clear color for GPURenderPassDescriptor
 const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 
-function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0]) {
+function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
   return [
     ...[x, y, z ?? 0, 1], // position
     ...[r, g, b, a], // color
-    ...[0, 0, -1], // normal
+    ...[nx, ny, nz], // normal
     ...[u, v], // uv
+  ];
+}
+
+function makeCube() {
+  return [
+    // Front face
+    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
+    ...makeVertex([ 1, -1,  1], [0, 1, 0, 1], [1, 0], [0, 0, -1]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    ...makeVertex([-1,  1,  1], [1, 1, 1, 1], [0, 1], [0, 0, -1]),
+    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    // Back face
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([-1,  1, -1], [0, 1, 0, 1], [0, 1], [0, 0, 1]),
+    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    ...makeVertex([ 1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, 1]),
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    // Top face
+    ...makeVertex([-1,  1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
+    ...makeVertex([-1,  1,  1], [0, 1, 0, 1], [0, 1], [0, 1, 0]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
+    ...makeVertex([ 1,  1, -1], [1, 1, 1, 1], [1, 0], [0, 1, 0]),
+    ...makeVertex([-1,  1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
+    // Bottom face
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
+    ...makeVertex([ 1, -1, -1], [0, 1, 0, 1], [1, 0], [0, -1, 0]),
+    ...makeVertex([ 1, -1,  1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
+    ...makeVertex([-1, -1,  1], [1, 1, 1, 1], [0, 1], [0, -1, 0]),
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
+    ...makeVertex([ 1, -1,  1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
+    // Right face
+    ...makeVertex([ 1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
+    ...makeVertex([ 1,  1, -1], [0, 1, 0, 1], [0, 1], [1, 0, 0]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
+    ...makeVertex([ 1, -1,  1], [1, 1, 1, 1], [1, 0], [1, 0, 0]),
+    ...makeVertex([ 1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
+    // Left face
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
+    ...makeVertex([-1, -1,  1], [0, 1, 0, 1], [1, 0], [-1, 0, 0]),
+    ...makeVertex([-1,  1,  1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
+    ...makeVertex([-1,  1, -1], [1, 1, 1, 1], [0, 1], [-1, 0, 0]),
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
+    ...makeVertex([-1,  1,  1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
   ];
 }
 
 // Vertex data for triangle
 const vertexDataSize = 4 * makeVertex().length;
 const vertices = new Float32Array([
-  ...makeVertex([0, 0.6], [1, 1, 1, 1]),
-  ...makeVertex([-0.5, -0.6], [1, 1, 1, 1]),
-  ...makeVertex([0.5, -0.6], [1, 1, 1, 1]),
+  ...makeCube(),
 ]);
 const vertexCount = vertices.byteLength / vertexDataSize;
 
@@ -43,14 +88,7 @@ function makeInstance([x, y] = [0, 0], [sx, sy] = [1, 1], rotDeg = 0, tint = [1,
 
 const instanceSize = 4 * makeInstance().length;
 const instances = new Float32Array([
-  ...makeInstance([0, 0], [1, 1], 0, [1, 1, 1, 1]),
-  ...makeInstance([0.5, 0.5], [0.5, 0.5], 0, [1, 0, 0, 1]),
-  ...makeInstance([-0.5, -0.5], [0.5, 0.5], -30, [0, 1, 0, 1]),
-  ...makeInstance([1, 0], [0.5, 0.5], 45, [0, 0, 1, 1]),
-  ...makeInstance([-1, 0], [0.5, 0.5], 90, [1, 1, 0, 1]),
-  ...makeInstance([0, 1], [0.5, 0.5], 135, [1, 0, 1, 1]),
-  ...makeInstance([0, -1], [0.5, 0.5], 180, [0, 1, 1, 1]),
-  ...makeInstance([1, 1], [0.5, 0.5], 225, [1, 1, 1, 1]),
+  ...makeInstance([0, 0], [0.5, 0.5], 0, [1, 1, 1, 1]),
 ]);
 const instanceCount = instances.byteLength / instanceSize;
 
@@ -227,7 +265,7 @@ async function init() {
     },
     primitive: {
       topology: 'triangle-list',
-      // cullMode: 'back',
+      cullMode: 'back',
     },
     layout: 'auto',
     // Enable depth testing so that the fragment closest to the camera
@@ -290,7 +328,6 @@ async function init() {
   function updateCamera(time) {
     mat4.identity(viewMatrix);
     mat4.translate(viewMatrix, vec3.fromValues(0, 0, -3), viewMatrix);
-    mat4.rotateY(viewMatrix, -time * 1/3, viewMatrix);
   }
 
   function updateUniforms(time) {
@@ -305,6 +342,7 @@ async function init() {
       mat4.identity(mv);
       mat4.multiply(mv, viewMatrix, mv);
       mat4.multiply(mv, model, mv);
+      mat4.rotateZ(mv, time, mv);
       mat4.rotateY(mv, time, mv);
 
       mat4.invert(mv, mv_inv);
