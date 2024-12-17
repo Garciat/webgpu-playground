@@ -6,16 +6,17 @@ import {
 // Clear color for GPURenderPassDescriptor
 const clearColor = { r: 0.2, g: 0.2, b: 0.2, a: 1.0 };
 
-function makeVertex([x, y], [r, g, b, a]) {
+function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0]) {
   return [
-    ...[x, y, 0, 1], // position
+    ...[x, y, z ?? 0, 1], // position
     ...[r, g, b, a], // color
     ...[0, 0, -1], // normal
+    ...[u, v], // uv
   ];
 }
 
 // Vertex data for triangle
-const vertexDataSize = 4 * 4 + 4 * 4 + 4 * 3; // position + color + normal
+const vertexDataSize = 4 * makeVertex().length;
 const vertices = new Float32Array([
   ...makeVertex([0, 0.6], [1, 1, 1, 1]),
   ...makeVertex([-0.5, -0.6], [1, 1, 1, 1]),
@@ -23,10 +24,10 @@ const vertices = new Float32Array([
 ]);
 const vertexCount = vertices.byteLength / vertexDataSize;
 
-function makeInstance(offset, scale, rotDeg, tint) {
+function makeInstance([x, y] = [0, 0], [sx, sy] = [1, 1], rotDeg = 0, tint = [1, 1, 1, 1]) {
   const model = mat4.identity();
-  mat4.translate(model, vec3.fromValues(offset[0], offset[1], 0), model);
-  mat4.scale(model, vec3.fromValues(scale[0], scale[1], 1), model);
+  mat4.translate(model, vec3.fromValues(x, y, 0), model);
+  mat4.scale(model, vec3.fromValues(sx, sy, 1), model);
   mat4.rotateZ(model, rotDeg / 360 * Math.PI * 2, model);
 
   const mv = mat4.create();
@@ -40,7 +41,7 @@ function makeInstance(offset, scale, rotDeg, tint) {
   ];
 }
 
-const instanceSize = 4*4 + 4*16 + 4*16 + 4*16; // tint + model + mvp + mvp_inv
+const instanceSize = 4 * makeInstance().length;
 const instances = new Float32Array([
   ...makeInstance([0, 0], [1, 1], 0, [1, 1, 1, 1]),
   ...makeInstance([0.5, 0.5], [0.5, 0.5], 0, [1, 0, 0, 1]),
@@ -126,7 +127,7 @@ async function init() {
   device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
 
   const LocVertex = 0;
-  const LocInstance = 3;
+  const LocInstance = 4;
 
   // 5: Create a GPUVertexBufferLayout and GPURenderPipelineDescriptor to provide a definition of our render pipline
   const vertexBuffers = [
@@ -146,6 +147,11 @@ async function init() {
           shaderLocation: LocVertex+2, // normal
           offset: 4 * 8,
           format: 'float32x3'
+        },
+        {
+          shaderLocation: LocVertex+3, // uv
+          offset: 4 * 11,
+          format: 'float32x2'
         },
       ],
       arrayStride: vertexDataSize,

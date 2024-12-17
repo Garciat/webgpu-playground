@@ -29,9 +29,10 @@ struct VertexIn {
   @location(LocVertex+0) position : vec4f,
   @location(LocVertex+1) color : vec4f,
   @location(LocVertex+2) normal : vec3f,
+  @location(LocVertex+3) uv : vec2f,
 }
 
-const LocInstance = 3;
+const LocInstance = 4;
 struct InstanceIn {
   @location(LocInstance+0) tint : vec4f,
 
@@ -69,6 +70,7 @@ struct VertexOut {
   @location(0) worldPosition : vec4f,
   @location(1) color : vec4f,
   @location(2) normal : vec3f,
+  @location(3) uv : vec2f,
 }
 
 struct FragmentOut {
@@ -85,6 +87,7 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
   output.worldPosition = mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
   output.normal = (mv_inv_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
+  output.uv = model.uv;
   return output;
 }
 
