@@ -102,6 +102,21 @@ function getInstanceParts(i) {
   return { tint, model, mv, mv_inv };
 }
 
+function makeLight([x, y, z] = [0, 0, 0], [r, g, b] = [1, 1, 1]) {
+  // using vec3 for either caused some weird alignment issue that I couldn't figure out
+  // so using vec4 sizes for position and color
+  return [
+    x, y, z, 0,
+    r, g, b, 1,
+  ];
+}
+
+const lightSize = 4 * makeLight().length;
+const lights = new Float32Array([
+  ...makeLight([0, 0, -4], [5, 5, 5]),
+]);
+const lightCount = lights.byteLength / lightSize;
+
 // Main function
 async function init() {
   const textureFormat = 'rgba16float';
@@ -153,16 +168,19 @@ async function init() {
     size: vertices.byteLength, // make it big enough to store vertices in
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-
-  // Copy the vertex data over to the GPUBuffer using the writeBuffer() utility function
-  device.queue.writeBuffer(vertexBuffer, 0, vertices, 0, vertices.length);
+  device.queue.writeBuffer(vertexBuffer, 0, vertices);
 
   const instanceBuffer = device.createBuffer({
     size: instances.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
+  device.queue.writeBuffer(instanceBuffer, 0, instances);
 
-  device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
+  const lightBuffer = device.createBuffer({
+    size: lights.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(lightBuffer, 0, lights);
 
   const LocVertex = 0;
   const LocInstance = 4;
@@ -319,6 +337,18 @@ async function init() {
     ],
   });
 
+  const lightsBindGroup = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(1),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: lightBuffer,
+        },
+      },
+    ],
+  });
+
   const aspect = canvas.width / canvas.height;
 
   const viewMatrix = mat4.create();
@@ -395,6 +425,7 @@ async function init() {
 
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
+    passEncoder.setBindGroup(1, lightsBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
     passEncoder.setVertexBuffer(1, instanceBuffer);
     passEncoder.draw(vertexCount, instanceCount);

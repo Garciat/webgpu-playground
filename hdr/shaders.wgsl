@@ -1,28 +1,14 @@
-struct PointLight {
-  position : vec3f,
-  color : vec3f,
-}
-
-struct LightStorage {
-  pointCount : u32,
-  point : array<PointLight, 1>,
-}
-
-var<private> lights: LightStorage = LightStorage(
-  1,
-  array(
-    PointLight(
-      vec3f(0.0, 0.0, -4.0),
-      vec3f(5.0, 5.0, 5.0),
-    ),
-  )
-);
-
 struct Uniforms {
   projectionMatrix : mat4x4f,
 }
 @group(0) @binding(0) var<uniform> time : f32;
 @group(0) @binding(1) var<uniform> uniforms : Uniforms;
+
+struct PointLight {
+  position : vec4f,
+  color : vec4f,
+}
+@group(1) @binding(0) var<storage, read> lights : array<PointLight>;
 
 const LocVertex = 0;
 struct VertexIn {
@@ -100,13 +86,13 @@ fn fragment_main(fragData: VertexOut) -> FragmentOut
   var surfaceColor = vec3f(0);
 
   // Loop over the scene point lights.
-  for (var i = 0u; i < lights.pointCount; i++) {
-    let worldToLight = lights.point[i].position - fragData.worldPosition.xyz;
+  for (var i = 0u; i < arrayLength(&lights); i++) {
+    let worldToLight = lights[i].position.xyz - fragData.worldPosition.xyz;
     let dist = length(worldToLight);
     let dir = normalize(worldToLight);
 
     // Determine the contribution of this light to the surface color.
-    let radiance = lights.point[i].color * (1 / pow(dist, 2));
+    let radiance = lights[i].color.rgb * (1 / pow(dist, 2));
     let nDotL = max(dot(N, dir), 0);
 
     // Accumulate light contribution to the surface color.
