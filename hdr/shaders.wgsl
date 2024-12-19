@@ -1,5 +1,6 @@
 struct Uniforms {
   projectionMatrix : mat4x4f,
+  viewMatrix : mat4x4f,
 }
 @group(0) @binding(0) var<uniform> time : f32;
 @group(0) @binding(1) var<uniform> uniforms : Uniforms;
@@ -27,10 +28,10 @@ struct InstanceIn {
   @location(LocInstance+3) mvMatrix2 : vec4f,
   @location(LocInstance+4) mvMatrix3 : vec4f,
 
-  @location(LocInstance+5) mvInvMatrix0 : vec4f,
-  @location(LocInstance+6) mvInvMatrix1 : vec4f,
-  @location(LocInstance+7) mvInvMatrix2 : vec4f,
-  @location(LocInstance+8) mvInvMatrix3 : vec4f,
+  @location(LocInstance+5) normalMatrix0 : vec4f,
+  @location(LocInstance+6) normalMatrix1 : vec4f,
+  @location(LocInstance+7) normalMatrix2 : vec4f,
+  @location(LocInstance+8) normalMatrix3 : vec4f,
 }
 
 fn mv_matrix(instance: InstanceIn) -> mat4x4f {
@@ -42,18 +43,18 @@ fn mv_matrix(instance: InstanceIn) -> mat4x4f {
   );
 }
 
-fn mv_inv_matrix(instance: InstanceIn) -> mat4x4f {
+fn normal_matrix(instance: InstanceIn) -> mat4x4f {
   return mat4x4f(
-    instance.mvInvMatrix0,
-    instance.mvInvMatrix1,
-    instance.mvInvMatrix2,
-    instance.mvInvMatrix3,
+    instance.normalMatrix0,
+    instance.normalMatrix1,
+    instance.normalMatrix2,
+    instance.normalMatrix3,
   );
 }
 
 struct VertexOut {
   @builtin(position) position : vec4f,
-  @location(0) worldPosition : vec4f,
+  @location(0) viewPosition : vec4f,
   @location(1) color : vec4f,
   @location(2) normal : vec3f,
   @location(3) uv : vec2f,
@@ -70,9 +71,9 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
 
   var output : VertexOut;
   output.position = uniforms.projectionMatrix * mv_matrix(instance) * model.position;
-  output.worldPosition = mv_matrix(instance) * model.position;
+  output.viewPosition = mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
-  output.normal = (mv_inv_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
+  output.normal = (normal_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
   output.uv = model.uv;
   return output;
 }
@@ -87,7 +88,7 @@ fn fragment_main(fragData: VertexOut) -> FragmentOut
 
   // Loop over the scene point lights.
   for (var i = 0u; i < arrayLength(&lights); i++) {
-    let worldToLight = lights[i].position.xyz - fragData.worldPosition.xyz;
+    let worldToLight = (uniforms.viewMatrix * lights[i].position).xyz - fragData.viewPosition.xyz;
     let dist = length(worldToLight);
     let dir = normalize(worldToLight);
 

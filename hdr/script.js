@@ -1,5 +1,6 @@
 import {
   vec3,
+  vec4,
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
@@ -75,14 +76,14 @@ function makeInstance([x, y] = [0, 0], [sx, sy] = [1, 1], rotDeg = 0, tint = [1,
   mat4.scale(model, vec3.fromValues(sx, sy, 1), model);
   mat4.rotateZ(model, rotDeg / 360 * Math.PI * 2, model);
 
-  const mv = mat4.create();
-  const mv_inv = mat4.create();
+  const mvMatrix = mat4.create();
+  const normalMatrix = mat4.create();
 
   return [
     ...tint,
     ...model,
-    ...mv,
-    ...mv_inv,
+    ...mvMatrix,
+    ...normalMatrix,
   ];
 }
 
@@ -96,10 +97,10 @@ function getInstanceParts(i) {
   const instance = instances.subarray(i * instanceSize / 4, (i + 1) * instanceSize / 4);
   const tint = instance.subarray(0, 4);
   const model = instance.subarray(4, 20);
-  const mv = instance.subarray(20, 36);
-  const mv_inv = instance.subarray(36, 52);
+  const mvMatrix = instance.subarray(20, 36);
+  const normalMatrix = instance.subarray(36, 52);
 
-  return { tint, model, mv, mv_inv };
+  return { tint, model, mvMatrix, normalMatrix };
 }
 
 function makeLight([x, y, z] = [0, 0, 0], [r, g, b] = [1, 1, 1]) {
@@ -241,22 +242,22 @@ async function init() {
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+5, // mvInvMatrix0
+          shaderLocation: LocInstance+5, // normalMatrix0
           offset: 4 * 16 + 4 * 20,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+6, // mvInvMatrix1
+          shaderLocation: LocInstance+6, // normalMatrix1
           offset: 4 * 16 + 4 * 24,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+7, // mvInvMatrix2
+          shaderLocation: LocInstance+7, // normalMatrix2
           offset: 4 * 16 + 4 * 28,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+8, // mvInvMatrix3
+          shaderLocation: LocInstance+8, // normalMatrix3
           offset: 4 * 16 + 4 * 32,
           format: 'float32x4',
         },
@@ -307,7 +308,7 @@ async function init() {
 
   // Uniforms
   const timeUniform = new Float32Array(1);
-  const uniforms = new Float32Array(16);
+  const uniforms = new Float32Array(32);
 
   const timeBuffer = device.createBuffer({
     size: timeUniform.byteLength,
@@ -351,31 +352,38 @@ async function init() {
 
   const aspect = canvas.width / canvas.height;
 
-  const viewMatrix = mat4.create();
+  const projectionMatrix = uniforms.subarray(0, 16);
+  mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, projectionMatrix);
 
-  const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0);
+  const viewMatrix = uniforms.subarray(16, 32);
 
   function updateCamera(time) {
+    const pos = vec3.fromValues(0, 0, -3);
+
     mat4.identity(viewMatrix);
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -3), viewMatrix);
+    mat4.translate(viewMatrix, pos, viewMatrix);
+    mat4.rotateX(viewMatrix, Math.PI / 4, viewMatrix);
+    mat4.rotateY(viewMatrix, time/4, viewMatrix);
   }
 
   function updateUniforms(time) {
-    mat4.identity(uniforms);
-    mat4.multiply(uniforms, projectionMatrix, uniforms);
+    const light = lights.subarray(0, 4);
+    vec4.set(0, 0, -4, 1, light);
+    vec4.transformMat4(light, mat4.rotateY(mat4.identity(), time*5), light);
   }
 
   function updateInstances(time) {
     for (let i = 0; i < instanceCount; i++) {
-      const { tint, model, mv, mv_inv } = getInstanceParts(i);
+      const { tint, model, mvMatrix, normalMatrix } = getInstanceParts(i);
 
-      mat4.identity(mv);
-      mat4.multiply(mv, viewMatrix, mv);
-      mat4.multiply(mv, model, mv);
-      mat4.rotateZ(mv, time, mv);
-      mat4.rotateY(mv, time, mv);
+      mat4.identity(mvMatrix);
+      mat4.multiply(mvMatrix, model, mvMatrix);
+      mat4.multiply(mvMatrix, viewMatrix, mvMatrix);
+      // mat4.rotateZ(mv, time, mv);
+      // mat4.rotateY(mv, time, mv);
 
-      mat4.invert(mv, mv_inv);
+      mat4.invert(mvMatrix, normalMatrix);
+      mat4.transpose(normalMatrix, normalMatrix);
     }
   }
 
@@ -383,17 +391,15 @@ async function init() {
     const time = timestamp / 1000;
 
     updateCamera(time);
+    updateUniforms(time);
+    updateInstances(time);
 
     // Update uniforms
     timeUniform[0] = time;
-    device.queue.writeBuffer(timeBuffer, 0, timeUniform, 0, timeUniform.length);
-
-    updateUniforms(time);
-    device.queue.writeBuffer(uniformBuffer, 0, uniforms, 0, uniforms.length);
-
-    // Update instances
-    updateInstances(time);
-    device.queue.writeBuffer(instanceBuffer, 0, instances, 0, instances.length);
+    device.queue.writeBuffer(timeBuffer, 0, timeUniform);
+    device.queue.writeBuffer(uniformBuffer, 0, uniforms);
+    device.queue.writeBuffer(lightBuffer, 0, lights);
+    device.queue.writeBuffer(instanceBuffer, 0, instances);
 
     // 7: Create GPUCommandEncoder to issue commands to the GPU
     // Note: render pass descriptor, command encoder, etc. are destroyed after use, fresh one needed for each frame.
