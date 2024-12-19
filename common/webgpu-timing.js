@@ -5,7 +5,7 @@ export class RollingAverage {
   #samples = [];
   #cursor = 0;
   #numSamples;
-  constructor(numSamples = 30) {
+  constructor(numSamples = 100) {
     this.#numSamples = numSamples;
   }
   addSample(v) {

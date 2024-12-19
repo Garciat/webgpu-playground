@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+
+    <title>Art 1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <script src="script.js" type="module" defer></script>
+
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      html, body {
+        margin: 0;      /* remove default margin */
+        height: 100%;   /* make body fill the browser window */
+        display: flex;
+        place-content: center center;
+      }
+      #myPerformanceInfo {
+        position: absolute;
+        top: 0;
+        left: 0;
+        margin: 0;
+        padding: 0.5em;
+        background-color: rgba(0, 0, 0, 0.8);
+        color: white;
+      }
+    </style>
+  </head>
+  <body style="background-color: red;">
+    <canvas id="gpuCanvas"></canvas>
+    <pre id="myPerformanceInfo"></pre>
+  </body>
+</html>

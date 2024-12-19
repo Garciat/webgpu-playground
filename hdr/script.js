@@ -4,7 +4,7 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
-import { RollingAverage, TimingHelper } from './webgpu-timing.js';
+import { RollingAverage, TimingHelper } from '../common/webgpu-timing.js';
 
 function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
   return [
@@ -617,7 +617,7 @@ async function init() {
 
     window.myPerformanceInfo.textContent = `\
 fps: ${fpsAverage.get().toFixed(1)}
-js: ${jsAverage.get().toFixed(1)}ms
+js: ${jsAverage.get().toFixed(3)}ms
 gpu: ${canTimestamp ? `${gpuAverage.get().toFixed(1)}µs` : 'N/A'}
 `;
 
