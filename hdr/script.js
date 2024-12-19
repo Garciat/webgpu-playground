@@ -19,47 +19,47 @@ function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] =
 function makeCube() {
   return [
     // Front face
-    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([ 1, -1,  1], [0, 1, 0, 1], [1, 0], [0, 0, 1]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
-    ...makeVertex([-1,  1,  1], [1, 1, 1, 1], [0, 1], [0, 0, 1]),
-    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    ...makeVertex([-1, -1, 1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([1, -1, 1], [0, 1, 0, 1], [1, 0], [0, 0, 1]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    ...makeVertex([-1, 1, 1], [1, 1, 1, 1], [0, 1], [0, 0, 1]),
+    ...makeVertex([-1, -1, 1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
     // Back face
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([-1,  1, -1], [0, 1, 0, 1], [0, 1], [0, 0, -1]),
-    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
-    ...makeVertex([ 1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, -1]),
+    ...makeVertex([-1, 1, -1], [0, 1, 0, 1], [0, 1], [0, 0, -1]),
+    ...makeVertex([1, 1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    ...makeVertex([1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, -1]),
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    ...makeVertex([1, 1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
     // Top face
-    ...makeVertex([-1,  1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
-    ...makeVertex([-1,  1,  1], [0, 1, 0, 1], [0, 1], [0, 1, 0]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
-    ...makeVertex([ 1,  1, -1], [1, 1, 1, 1], [1, 0], [0, 1, 0]),
-    ...makeVertex([-1,  1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
+    ...makeVertex([-1, 1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
+    ...makeVertex([-1, 1, 1], [0, 1, 0, 1], [0, 1], [0, 1, 0]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
+    ...makeVertex([1, 1, -1], [1, 1, 1, 1], [1, 0], [0, 1, 0]),
+    ...makeVertex([-1, 1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
     // Bottom face
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
-    ...makeVertex([ 1, -1, -1], [0, 1, 0, 1], [1, 0], [0, -1, 0]),
-    ...makeVertex([ 1, -1,  1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
-    ...makeVertex([-1, -1,  1], [1, 1, 1, 1], [0, 1], [0, -1, 0]),
+    ...makeVertex([1, -1, -1], [0, 1, 0, 1], [1, 0], [0, -1, 0]),
+    ...makeVertex([1, -1, 1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
+    ...makeVertex([-1, -1, 1], [1, 1, 1, 1], [0, 1], [0, -1, 0]),
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
-    ...makeVertex([ 1, -1,  1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
+    ...makeVertex([1, -1, 1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
     // Right face
-    ...makeVertex([ 1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
-    ...makeVertex([ 1,  1, -1], [0, 1, 0, 1], [0, 1], [1, 0, 0]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
-    ...makeVertex([ 1, -1,  1], [1, 1, 1, 1], [1, 0], [1, 0, 0]),
-    ...makeVertex([ 1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
+    ...makeVertex([1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
+    ...makeVertex([1, 1, -1], [0, 1, 0, 1], [0, 1], [1, 0, 0]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
+    ...makeVertex([1, -1, 1], [1, 1, 1, 1], [1, 0], [1, 0, 0]),
+    ...makeVertex([1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
+    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
     // Left face
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
-    ...makeVertex([-1, -1,  1], [0, 1, 0, 1], [1, 0], [-1, 0, 0]),
-    ...makeVertex([-1,  1,  1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
-    ...makeVertex([-1,  1, -1], [1, 1, 1, 1], [0, 1], [-1, 0, 0]),
+    ...makeVertex([-1, -1, 1], [0, 1, 0, 1], [1, 0], [-1, 0, 0]),
+    ...makeVertex([-1, 1, 1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
+    ...makeVertex([-1, 1, -1], [1, 1, 1, 1], [0, 1], [-1, 0, 0]),
     ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
-    ...makeVertex([-1,  1,  1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
+    ...makeVertex([-1, 1, 1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
   ];
 }
 
@@ -192,22 +192,22 @@ async function init() {
     {
       attributes: [
         {
-          shaderLocation: LocVertex+0, // position
+          shaderLocation: LocVertex + 0, // position
           offset: 0,
           format: 'float32x4'
         },
         {
-          shaderLocation: LocVertex+1, // color
+          shaderLocation: LocVertex + 1, // color
           offset: 4 * 4,
           format: 'float32x4'
         },
         {
-          shaderLocation: LocVertex+2, // normal
+          shaderLocation: LocVertex + 2, // normal
           offset: 4 * 8,
           format: 'float32x3'
         },
         {
-          shaderLocation: LocVertex+3, // uv
+          shaderLocation: LocVertex + 3, // uv
           offset: 4 * 11,
           format: 'float32x2'
         },
@@ -218,47 +218,47 @@ async function init() {
     {
       attributes: [
         {
-          shaderLocation: LocInstance+0, // tint
+          shaderLocation: LocInstance + 0, // tint
           offset: 0,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+1, // mvMatrix0
+          shaderLocation: LocInstance + 1, // mvMatrix0
           offset: 4 * 16 + 4 * 4,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+2, // mvMatrix1
+          shaderLocation: LocInstance + 2, // mvMatrix1
           offset: 4 * 16 + 4 * 8,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+3, // mvMatrix2
+          shaderLocation: LocInstance + 3, // mvMatrix2
           offset: 4 * 16 + 4 * 12,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+4, // mvMatrix3
+          shaderLocation: LocInstance + 4, // mvMatrix3
           offset: 4 * 16 + 4 * 16,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+5, // normalMatrix0
+          shaderLocation: LocInstance + 5, // normalMatrix0
           offset: 4 * 16 + 4 * 20,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+6, // normalMatrix1
+          shaderLocation: LocInstance + 6, // normalMatrix1
           offset: 4 * 16 + 4 * 24,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+7, // normalMatrix2
+          shaderLocation: LocInstance + 7, // normalMatrix2
           offset: 4 * 16 + 4 * 28,
           format: 'float32x4',
         },
         {
-          shaderLocation: LocInstance+8, // normalMatrix3
+          shaderLocation: LocInstance + 8, // normalMatrix3
           offset: 4 * 16 + 4 * 32,
           format: 'float32x4',
         },
@@ -321,6 +321,37 @@ async function init() {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
+  let cubeTexture;
+  {
+    const response = await fetch('./lulu.png');
+    const imageBitmap = await createImageBitmap(
+      await response.blob(),
+      {
+        colorSpaceConversion: 'none',
+        resizeQuality: 'high',
+        premultiplyAlpha: 'none',
+      });
+
+    cubeTexture = device.createTexture({
+      size: [imageBitmap.width, imageBitmap.height, 1],
+      format: textureFormat,
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    device.queue.copyExternalImageToTexture(
+      { source: imageBitmap },
+      { texture: cubeTexture, colorSpace: 'display-p3', premultipliedAlpha: false },
+      [imageBitmap.width, imageBitmap.height]
+    );
+  }
+
+  const sampler = device.createSampler({
+    magFilter: 'linear',
+    minFilter: 'linear',
+  });
+
   const uniformBindGroup = device.createBindGroup({
     layout: renderPipeline.getBindGroupLayout(0),
     entries: [
@@ -347,6 +378,20 @@ async function init() {
         resource: {
           buffer: lightBuffer,
         },
+      },
+    ],
+  });
+
+  const textureBindGroup = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(2),
+    entries: [
+      {
+        binding: 0,
+        resource: sampler,
+      },
+      {
+        binding: 1,
+        resource: cubeTexture.createView(),
       },
     ],
   });
@@ -433,6 +478,7 @@ async function init() {
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setBindGroup(1, lightsBindGroup);
+    passEncoder.setBindGroup(2, textureBindGroup);
     passEncoder.setVertexBuffer(0, vertexBuffer);
     passEncoder.setVertexBuffer(1, instanceBuffer);
     passEncoder.draw(vertexCount, instanceCount);

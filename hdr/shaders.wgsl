@@ -11,6 +11,9 @@ struct PointLight {
 }
 @group(1) @binding(0) var<storage, read> lights : array<PointLight>;
 
+@group(2) @binding(0) var texSampler : sampler;
+@group(2) @binding(1) var texture : texture_2d<f32>;
+
 const LocVertex = 0;
 struct VertexIn {
   @location(LocVertex+0) position : vec4f,
@@ -85,12 +88,12 @@ fn vertex_main(model : VertexIn, instance : InstanceIn) -> VertexOut
 @fragment
 fn fragment_main(fragData : VertexOut) -> FragmentOut
 {
+  let baseColor = textureSample(texture, texSampler, fragData.uv);
+
   if (fragData.instanceIndex == 1u) {
     // TODO: little hack to render the light source :shrug:
     return FragmentOut(vec4(5.0, 5.0, 5.0, 1.0));
   }
-
-  let baseColor = fragData.color;
 
   let N = normalize(fragData.normal);
   var surfaceColor = vec3f(0);
@@ -111,6 +114,8 @@ fn fragment_main(fragData : VertexOut) -> FragmentOut
 
   var output : FragmentOut;
   output.color = vec4(surfaceColor, baseColor.a);
+  // debug texture
+  // output.color = baseColor;
   // debug normal
   // output.color = vec4f(fragData.normal * 0.5 + 0.5, 1.0);
   return output;
