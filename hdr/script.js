@@ -90,7 +90,7 @@ function makeInstance([x, y, z] = [0, 0, 0], [sx, sy, sz] = [1, 1, 1], rotDeg = 
 const instanceSize = 4 * makeInstance().length;
 const instances = new Float32Array([
   ...makeInstance([0, 0, 0], [0.5, 0.5, 0.5], 0, [1, 1, 1, 1]),
-  ...makeInstance([0, 0, -3], [0.1, 0.1, 0.1], 0, [1, 1, 1, 1]), // light
+  ...makeInstance([0, 0, -3], [0.05, 0.05, 0.05], 0, [1, 1, 1, 1]), // light
 ]);
 const instanceCount = instances.byteLength / instanceSize;
 

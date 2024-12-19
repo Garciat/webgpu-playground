@@ -21,6 +21,8 @@ struct VertexIn {
 
 const LocInstance = 4;
 struct InstanceIn {
+  @builtin(instance_index) instanceIndex : u32,
+
   @location(LocInstance+0) tint : vec4f,
 
   @location(LocInstance+1) mvMatrix0 : vec4f,
@@ -34,7 +36,7 @@ struct InstanceIn {
   @location(LocInstance+8) normalMatrix3 : vec4f,
 }
 
-fn mv_matrix(instance: InstanceIn) -> mat4x4f {
+fn mv_matrix(instance : InstanceIn) -> mat4x4f {
   return mat4x4f(
     instance.mvMatrix0,
     instance.mvMatrix1,
@@ -43,7 +45,7 @@ fn mv_matrix(instance: InstanceIn) -> mat4x4f {
   );
 }
 
-fn normal_matrix(instance: InstanceIn) -> mat4x4f {
+fn normal_matrix(instance : InstanceIn) -> mat4x4f {
   return mat4x4f(
     instance.normalMatrix0,
     instance.normalMatrix1,
@@ -58,6 +60,7 @@ struct VertexOut {
   @location(1) color : vec4f,
   @location(2) normal : vec3f,
   @location(3) uv : vec2f,
+  @location(4) @interpolate(flat) instanceIndex : u32,
 }
 
 struct FragmentOut {
@@ -65,7 +68,7 @@ struct FragmentOut {
 }
 
 @vertex
-fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
+fn vertex_main(model : VertexIn, instance : InstanceIn) -> VertexOut
 {
   let _t = time; // keep the compiler happy
 
@@ -75,12 +78,18 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
   output.color = model.color * instance.tint;
   output.normal = (normal_matrix(instance) * vec4f(model.normal, 1.0)).xyz;
   output.uv = model.uv;
+  output.instanceIndex = instance.instanceIndex;
   return output;
 }
 
 @fragment
-fn fragment_main(fragData: VertexOut) -> FragmentOut
+fn fragment_main(fragData : VertexOut) -> FragmentOut
 {
+  if (fragData.instanceIndex == 1u) {
+    // TODO: little hack to render the light source :shrug:
+    return FragmentOut(vec4(5.0, 5.0, 5.0, 1.0));
+  }
+
   let baseColor = fragData.color;
 
   let N = normalize(fragData.normal);
