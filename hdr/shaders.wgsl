@@ -1,9 +1,9 @@
-struct Uniforms {
+struct Camera {
   projectionMatrix : mat4x4f,
   viewMatrix : mat4x4f,
 }
 @group(0) @binding(0) var<uniform> time : f32;
-@group(0) @binding(1) var<uniform> uniforms : Uniforms;
+@group(0) @binding(1) var<uniform> camera : Camera;
 
 struct PointLight {
   position : vec4f,
@@ -70,10 +70,10 @@ fn vertex_main(model: VertexIn, instance: InstanceIn) -> VertexOut
   let _t = time; // keep the compiler happy
 
   var output : VertexOut;
-  output.position = uniforms.projectionMatrix * mv_matrix(instance) * model.position;
+  output.position = camera.projectionMatrix * mv_matrix(instance) * model.position;
   output.viewPosition = mv_matrix(instance) * model.position;
   output.color = model.color * instance.tint;
-  output.normal = (normal_matrix(instance) * vec4f(model.normal, 0.0)).xyz;
+  output.normal = (normal_matrix(instance) * vec4f(model.normal, 1.0)).xyz;
   output.uv = model.uv;
   return output;
 }
@@ -88,7 +88,7 @@ fn fragment_main(fragData: VertexOut) -> FragmentOut
 
   // Loop over the scene point lights.
   for (var i = 0u; i < arrayLength(&lights); i++) {
-    let worldToLight = (uniforms.viewMatrix * lights[i].position).xyz - fragData.viewPosition.xyz;
+    let worldToLight = (camera.viewMatrix * lights[i].position).xyz - fragData.viewPosition.xyz;
     let dist = length(worldToLight);
     let dir = normalize(worldToLight);
 

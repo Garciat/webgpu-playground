@@ -19,19 +19,19 @@ function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] =
 function makeCube() {
   return [
     // Front face
-    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([ 1, -1,  1], [0, 1, 0, 1], [1, 0], [0, 0, -1]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
-    ...makeVertex([-1,  1,  1], [1, 1, 1, 1], [0, 1], [0, 0, -1]),
-    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([ 1, -1,  1], [0, 1, 0, 1], [1, 0], [0, 0, 1]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    ...makeVertex([-1,  1,  1], [1, 1, 1, 1], [0, 1], [0, 0, 1]),
+    ...makeVertex([-1, -1,  1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
+    ...makeVertex([ 1,  1,  1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
     // Back face
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([-1,  1, -1], [0, 1, 0, 1], [0, 1], [0, 0, 1]),
-    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
-    ...makeVertex([ 1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, 1]),
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
+    ...makeVertex([-1,  1, -1], [0, 1, 0, 1], [0, 1], [0, 0, -1]),
+    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    ...makeVertex([ 1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, -1]),
+    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
+    ...makeVertex([ 1,  1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
     // Top face
     ...makeVertex([-1,  1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
     ...makeVertex([-1,  1,  1], [0, 1, 0, 1], [0, 1], [0, 1, 0]),
@@ -70,10 +70,10 @@ const vertices = new Float32Array([
 ]);
 const vertexCount = vertices.byteLength / vertexDataSize;
 
-function makeInstance([x, y] = [0, 0], [sx, sy] = [1, 1], rotDeg = 0, tint = [1, 1, 1, 1]) {
+function makeInstance([x, y, z] = [0, 0, 0], [sx, sy, sz] = [1, 1, 1], rotDeg = 0, tint = [1, 1, 1, 1]) {
   const model = mat4.identity();
-  mat4.translate(model, vec3.fromValues(x, y, 0), model);
-  mat4.scale(model, vec3.fromValues(sx, sy, 1), model);
+  mat4.translate(model, vec3.fromValues(x, y, z), model);
+  mat4.scale(model, vec3.fromValues(sx, sy, sz), model);
   mat4.rotateZ(model, rotDeg / 360 * Math.PI * 2, model);
 
   const mvMatrix = mat4.create();
@@ -89,7 +89,8 @@ function makeInstance([x, y] = [0, 0], [sx, sy] = [1, 1], rotDeg = 0, tint = [1,
 
 const instanceSize = 4 * makeInstance().length;
 const instances = new Float32Array([
-  ...makeInstance([0, 0], [0.5, 0.5], 0, [1, 1, 1, 1]),
+  ...makeInstance([0, 0, 0], [0.5, 0.5, 0.5], 0, [1, 1, 1, 1]),
+  ...makeInstance([0, 0, -3], [0.1, 0.1, 0.1], 0, [1, 1, 1, 1]), // light
 ]);
 const instanceCount = instances.byteLength / instanceSize;
 
@@ -107,14 +108,14 @@ function makeLight([x, y, z] = [0, 0, 0], [r, g, b] = [1, 1, 1]) {
   // using vec3 for either caused some weird alignment issue that I couldn't figure out
   // so using vec4 sizes for position and color
   return [
-    x, y, z, 0,
+    x, y, z, 1,
     r, g, b, 1,
   ];
 }
 
 const lightSize = 4 * makeLight().length;
 const lights = new Float32Array([
-  ...makeLight([0, 0, -4], [5, 5, 5]),
+  ...makeLight([0, 0, -3], [10, 10, 10]),
 ]);
 const lightCount = lights.byteLength / lightSize;
 
@@ -308,15 +309,15 @@ async function init() {
 
   // Uniforms
   const timeUniform = new Float32Array(1);
-  const uniforms = new Float32Array(32);
+  const camera = new Float32Array(32);
 
   const timeBuffer = device.createBuffer({
     size: timeUniform.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const uniformBuffer = device.createBuffer({
-    size: uniforms.byteLength,
+  const cameraBuffer = device.createBuffer({
+    size: camera.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -332,7 +333,7 @@ async function init() {
       {
         binding: 1,
         resource: {
-          buffer: uniformBuffer,
+          buffer: cameraBuffer,
         },
       },
     ],
@@ -352,24 +353,22 @@ async function init() {
 
   const aspect = canvas.width / canvas.height;
 
-  const projectionMatrix = uniforms.subarray(0, 16);
+  const projectionMatrix = camera.subarray(0, 16);
   mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, projectionMatrix);
 
-  const viewMatrix = uniforms.subarray(16, 32);
+  const viewMatrix = camera.subarray(16, 32);
 
   function updateCamera(time) {
-    const pos = vec3.fromValues(0, 0, -3);
+    const pos = vec3.fromValues(0, 0, -5);
 
     mat4.identity(viewMatrix);
     mat4.translate(viewMatrix, pos, viewMatrix);
-    mat4.rotateX(viewMatrix, Math.PI / 4, viewMatrix);
-    mat4.rotateY(viewMatrix, time/4, viewMatrix);
+    // mat4.rotateX(viewMatrix, Math.PI / 4, viewMatrix);
+    mat4.rotateY(viewMatrix, time, viewMatrix);
   }
 
   function updateUniforms(time) {
-    const light = lights.subarray(0, 4);
-    vec4.set(0, 0, -4, 1, light);
-    vec4.transformMat4(light, mat4.rotateY(mat4.identity(), time*5), light);
+    timeUniform[0] = time;
   }
 
   function updateInstances(time) {
@@ -377,10 +376,13 @@ async function init() {
       const { tint, model, mvMatrix, normalMatrix } = getInstanceParts(i);
 
       mat4.identity(mvMatrix);
-      mat4.multiply(mvMatrix, model, mvMatrix);
       mat4.multiply(mvMatrix, viewMatrix, mvMatrix);
-      // mat4.rotateZ(mv, time, mv);
-      // mat4.rotateY(mv, time, mv);
+      mat4.multiply(mvMatrix, model, mvMatrix);
+
+      if (i === 0) {
+        mat4.rotateY(mvMatrix, time, mvMatrix);
+        mat4.rotateX(mvMatrix, time, mvMatrix);
+      }
 
       mat4.invert(mvMatrix, normalMatrix);
       mat4.transpose(normalMatrix, normalMatrix);
@@ -395,9 +397,8 @@ async function init() {
     updateInstances(time);
 
     // Update uniforms
-    timeUniform[0] = time;
     device.queue.writeBuffer(timeBuffer, 0, timeUniform);
-    device.queue.writeBuffer(uniformBuffer, 0, uniforms);
+    device.queue.writeBuffer(cameraBuffer, 0, camera);
     device.queue.writeBuffer(lightBuffer, 0, lights);
     device.queue.writeBuffer(instanceBuffer, 0, instances);
 
