@@ -4,6 +4,8 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
+import { RollingAverage, TimingHelper } from './webgpu-timing.js';
+
 function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
   return [
     ...[x, y, z ?? 0, 1], // position
@@ -124,7 +126,7 @@ const planeVertexData = new Float32Array([
 const planeVertexCount = planeVertexData.byteLength / vertexDataSize;
 
 const planeInstanceData = new Float32Array([
-  ...makeInstance([0, -2, 0], [20, 20, 20], [-Math.PI/2, 0, 0], [1, 1, 1, 1]),
+  ...makeInstance([0, -2, 0], [20, 20, 20], [-Math.PI / 2, 0, 0], [1, 1, 1, 1]),
 ]);
 const planeInstances = planeInstanceData.byteLength / instanceDataSize;
 
@@ -153,6 +155,10 @@ const lights = new Float32Array([
 ]);
 const lightCount = lights.byteLength / lightSize;
 
+const fpsAverage = new RollingAverage();
+const jsAverage = new RollingAverage();
+const gpuAverage = new RollingAverage();
+
 // Main function
 async function init() {
   const textureFormat = 'rgba16float';
@@ -171,7 +177,15 @@ async function init() {
     throw Error('Couldn\'t request WebGPU adapter.');
   }
 
-  let device = await adapter.requestDevice();
+  const canTimestamp = adapter.features.has('timestamp-query');
+
+  const device = await adapter?.requestDevice({
+    requiredFeatures: [
+      ...(canTimestamp ? ['timestamp-query'] : []),
+    ],
+  });
+
+  const timingHelper = new TimingHelper(device);
 
   // 2: Create a shader module from the shaders template literal
   const shaderModule = device.createShaderModule({
@@ -525,8 +539,14 @@ async function init() {
     }
   }
 
-  function frame(timestamp) {
-    const time = timestamp / 1000;
+  let then = 0;
+  function frame(now) {
+    const time = now / 1000;
+
+    const deltaTime = time - then;
+    then = time;
+
+    const startTime = performance.now();
 
     updateCamera(time);
     updateUniforms(time);
@@ -563,7 +583,7 @@ async function init() {
       },
     };
 
-    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
+    const passEncoder = timingHelper.beginRenderPass(commandEncoder, renderPassDescriptor);
 
     // 9: Draw the triangle
 
@@ -585,6 +605,21 @@ async function init() {
 
     // 10: End frame by passing array of command buffers to command queue for execution
     device.queue.submit([commandEncoder.finish()]);
+
+    timingHelper.getResult().then(gpuTime => {
+      gpuAverage.addSample(gpuTime / 1000);
+    });
+
+    const jsTime = performance.now() - startTime;
+
+    fpsAverage.addSample(1 / deltaTime);
+    jsAverage.addSample(jsTime);
+
+    window.myPerformanceInfo.textContent = `\
+fps: ${fpsAverage.get().toFixed(1)}
+js: ${jsAverage.get().toFixed(1)}ms
+gpu: ${canTimestamp ? `${gpuAverage.get().toFixed(1)}µs` : 'N/A'}
+`;
 
     requestAnimationFrame(frame);
   }
