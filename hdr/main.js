@@ -162,16 +162,7 @@ const lights = new Float32Array([
 ]);
 const lightCount = lights.byteLength / lightSize;
 
-const timing = new TimingManager(
-  new RollingAverage(),
-  new RollingAverage(),
-  new RollingAverage(),
-);
-
-const timingDisplay = new TimingValuesDisplay(document.body);
-
-// Main function
-async function init() {
+async function main() {
   const {canvas, displayW, displayH} = Screen.setup(document.body, window.devicePixelRatio);
 
   const {adapter, device, context, canvasTextureFormat} = await Screen.gpu(navigator.gpu, canvas, {
@@ -180,7 +171,6 @@ async function init() {
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
 
-  // 4: Create vertex buffer to contain vertex data
   const cubeVertexBuffer = device.createBuffer({
     size: cubeVertexData.byteLength, // make it big enough to store vertices in
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -214,7 +204,6 @@ async function init() {
   const LocVertex = 0;
   const LocInstance = 4;
 
-  // 5: Create a GPUVertexBufferLayout and GPURenderPipelineDescriptor to provide a definition of our render pipline
   const vertexBufferLayout = [
     {
       attributes: [
@@ -335,8 +324,6 @@ async function init() {
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
-
-  // 6: Create the actual render pipeline
 
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
@@ -512,6 +499,14 @@ async function init() {
     }
   }
 
+  const timing = new TimingManager(
+    new RollingAverage(),
+    new RollingAverage(),
+    new RollingAverage(),
+  );
+
+  const timingDisplay = new TimingValuesDisplay(document.body);
+
   function frame(timestamp) {
     timing.beginFrame(timestamp);
 
@@ -528,11 +523,7 @@ async function init() {
     device.queue.writeBuffer(cubeInstanceBuffer, 0, cubeInstanceData);
     device.queue.writeBuffer(planeInstanceBuffer, 0, planeInstanceData);
 
-    // 7: Create GPUCommandEncoder to issue commands to the GPU
-    // Note: render pass descriptor, command encoder, etc. are destroyed after use, fresh one needed for each frame.
     const commandEncoder = device.createCommandEncoder();
-
-    // 8: Create GPURenderPassDescriptor to tell WebGPU which texture to draw into, then initiate render pass
 
     const renderPassDescriptor = {
       colorAttachments: [
@@ -555,8 +546,6 @@ async function init() {
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
-    // 9: Draw the triangle
-
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.setBindGroup(1, lightsBindGroup);
@@ -570,11 +559,9 @@ async function init() {
     passEncoder.setVertexBuffer(1, planeInstanceBuffer);
     passEncoder.draw(planeVertexCount, planeInstances);
 
-    // End the render pass
     passEncoder.end();
     gpuTimingAdapter.trackPassEnd(commandEncoder);
 
-    // 10: End frame by passing array of command buffers to command queue for execution
     device.queue.submit([commandEncoder.finish()]);
 
     let timingValues = timing.endFrame(gpuTimingAdapter.getResult());
@@ -586,4 +573,4 @@ async function init() {
   requestAnimationFrame(frame);
 }
 
-init();
+await main();
