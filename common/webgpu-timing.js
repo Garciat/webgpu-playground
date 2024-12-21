@@ -86,6 +86,11 @@ export class TimingValuesDisplay {
     Styles.set(this.#element, this.#style);
 
     parent.appendChild(this.#element);
+
+    // HACK
+    if (window.location.hash.includes('timing=no')) {
+      this.#element.style.display = 'none';
+    }
   }
 
   display(timingValues) {
