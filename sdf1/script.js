@@ -1,10 +1,4 @@
 import {
-  vec3,
-  vec4,
-  mat4,
-} from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
-
-import {
   RollingAverage,
   TimingManager,
   GPUTimingAdapter,
@@ -22,8 +16,6 @@ const timingDisplay = new TimingValuesDisplay(document.body);
 // Main function
 async function init() {
   const textureFormat = 'rgba16float';
-
-  const shaders = await fetch('shaders.wgsl').then(response => response.text());
 
   if (!navigator.gpu) {
     throw Error('WebGPU not supported.');
@@ -43,10 +35,6 @@ async function init() {
   });
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
-
-  const shaderModule = device.createShaderModule({
-    code: shaders
-  });
 
   const canvas = document.querySelector('#gpuCanvas');
 
@@ -72,12 +60,14 @@ async function init() {
 
   const pipelineDescriptor = {
     vertex: {
-      module: shaderModule,
-      entryPoint: 'vertex_main',
+      module: device.createShaderModule({
+        code: await fetch('../common/static-quad.vert.wgsl').then(response => response.text()),
+      }),
     },
     fragment: {
-      module: shaderModule,
-      entryPoint: 'fragment_main',
+      module: device.createShaderModule({
+        code: await fetch('frag.wgsl').then(response => response.text()),
+      }),
       targets: [
         {
           format: textureFormat

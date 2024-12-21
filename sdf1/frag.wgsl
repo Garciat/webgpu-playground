@@ -9,30 +9,6 @@ struct Uniforms {
 
 @group(0) @binding(0) var<uniform> uniforms : Uniforms;
 
-struct VertexIn {
-  @builtin(vertex_index) index : u32,
-}
-
-struct VertexOut {
-  @builtin(position) position : vec4f,
-}
-
-struct FragmentOut {
-  @location(0) color : vec4f,
-}
-
-@vertex
-fn vertex_main(vertex : VertexIn) -> VertexOut {
-  const pos = array(
-    vec2(-1.0, -1.0), vec2(1.0, -1.0), vec2(-1.0, 1.0),
-    vec2(-1.0, 1.0), vec2(1.0, -1.0), vec2(1.0, 1.0),
-  );
-
-  var output : VertexOut;
-  output.position = vec4f(pos[vertex.index], 0.0, 1.0);
-  return output;
-}
-
 // Source: https://www.youtube.com/watch?v=khblXafu7iA
 
 fn palette(t : f32) -> vec3f {
@@ -83,10 +59,10 @@ fn sdf_main(p : vec3f) -> f32 {
 }
 
 @fragment
-fn fragment_main(fragment : VertexOut) -> FragmentOut {
+fn main(@builtin(position) position : vec4f) -> @location(0) vec4f {
   let time = uniforms.time.x; // time in seconds
 
-  let coord = vec2f(fragment.position.x, uniforms.resolution.y - fragment.position.y);
+  let coord = vec2f(position.x, uniforms.resolution.y - position.y);
   let uv = (coord * 2.0 - uniforms.resolution.xy) / uniforms.resolution.y;
 
   let mcoord = vec2f(uniforms.mouse.x, uniforms.resolution.y - uniforms.mouse.y);
@@ -121,9 +97,7 @@ fn fragment_main(fragment : VertexOut) -> FragmentOut {
   // Coloring
   col = palette(t * 0.05);
 
-  var output : FragmentOut;
-  output.color = vec4f(col, 1.0);
-  return output;
+  return vec4f(col, 1.0);
 }
 
 fn rot2d(a : f32) -> mat2x2f {
