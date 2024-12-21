@@ -28,6 +28,7 @@ export class Screen {
     Styles.set(canvas, {
       width: CSS.px(displayW),
       height: CSS.px(displayH),
+      'touch-action': 'none',
     });
     canvas.style.width = `${displayW}px`;
     canvas.style.height = `${displayH}px`;

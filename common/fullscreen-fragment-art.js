@@ -102,6 +102,9 @@ export class FullscreenFragmentArt {
   }
 
   #attach() {
+    this.#canvas.addEventListener('pointerdown', ev => {
+      ev.preventDefault();
+    });
     this.#canvas.addEventListener('pointermove', ev => {
       this.#setMousePositionClient(ev.offsetX, ev.offsetY);
     });
