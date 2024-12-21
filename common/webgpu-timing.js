@@ -1,3 +1,5 @@
+import { Styles } from './display.js';
+
 // Source: https://webgpufundamentals.org/webgpu/lessons/webgpu-timing.html
 
 export class RollingAverage {
@@ -81,10 +83,7 @@ export class TimingValuesDisplay {
 
   constructor(parent) {
     this.#element = document.createElement('pre');
-
-    for (let key of Object.keys(this.#style)) {
-      this.#element.style.setProperty(key, this.#style[key]);
-    }
+    Styles.set(this.#element, this.#style);
 
     parent.appendChild(this.#element);
   }

@@ -5,6 +5,8 @@ import {
   TimingValuesDisplay,
 } from '../common/webgpu-timing.js';
 
+import { Screen } from '../common/display.js';
+
 const timing = new TimingManager(
   new RollingAverage(),
   new RollingAverage(),
@@ -15,50 +17,15 @@ const timingDisplay = new TimingValuesDisplay(document.body);
 
 // Main function
 async function init() {
-  const textureFormat = 'rgba16float';
+  const {canvas, displayW, displayH} = Screen.setup(document.body, window.devicePixelRatio);
 
-  if (!navigator.gpu) {
-    throw Error('WebGPU not supported.');
-  }
-
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    throw Error('Couldn\'t request WebGPU adapter.');
-  }
-
-  const canTimestamp = adapter.features.has('timestamp-query');
-
-  const device = await adapter?.requestDevice({
-    requiredFeatures: [
-      ...(canTimestamp ? ['timestamp-query'] : []),
-    ],
+  const {adapter, device, context, canvasTextureFormat} = await Screen.gpu(navigator.gpu, canvas, {
+    optionalFeatures: ['timestamp-query'],
   });
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
 
-  const canvas = document.querySelector('#gpuCanvas');
-
-  const devicePixelRatio = window.devicePixelRatio;
-  const displayW = document.body.clientWidth;
-  const displayH = document.body.clientHeight;
-  canvas.style.width = `${displayW}px`;
-  canvas.style.height = `${displayH}px`;
-  canvas.width = displayW * devicePixelRatio;
-  canvas.height = displayH * devicePixelRatio;
-
-  const context = canvas.getContext('webgpu');
-
-  context.configure({
-    device: device,
-    format: textureFormat,
-    colorSpace: 'display-p3',
-    toneMapping: {
-      mode: 'extended',
-    },
-    alphaMode: 'premultiplied',
-  });
-
-  const pipelineDescriptor = {
+  const renderPipeline = device.createRenderPipeline({
     vertex: {
       module: device.createShaderModule({
         code: await fetch('../common/static-quad.vert.wgsl').then(response => response.text()),
@@ -70,7 +37,7 @@ async function init() {
       }),
       targets: [
         {
-          format: textureFormat
+          format: canvasTextureFormat,
         },
       ],
     },
@@ -78,9 +45,7 @@ async function init() {
       topology: 'triangle-list',
     },
     layout: 'auto',
-  };
-
-  const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
+  });
 
   // Uniforms
   const uniformsData = new Float32Array(4 * 3);

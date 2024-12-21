@@ -11,6 +11,8 @@ import {
   TimingValuesDisplay,
 } from '../common/webgpu-timing.js';
 
+import { Screen } from '../common/display.js';
+
 function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
   return [
     ...[x, y, z ?? 0, 1], // position
@@ -170,57 +172,13 @@ const timingDisplay = new TimingValuesDisplay(document.body);
 
 // Main function
 async function init() {
-  const textureFormat = 'rgba16float';
+  const {canvas, displayW, displayH} = Screen.setup(document.body, window.devicePixelRatio);
 
-  // 0: download shader
-
-  const shaders = await fetch('shaders.wgsl').then(response => response.text());
-
-  // 1: request adapter and device
-  if (!navigator.gpu) {
-    throw Error('WebGPU not supported.');
-  }
-
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    throw Error('Couldn\'t request WebGPU adapter.');
-  }
-
-  const canTimestamp = adapter.features.has('timestamp-query');
-
-  const device = await adapter?.requestDevice({
-    requiredFeatures: [
-      ...(canTimestamp ? ['timestamp-query'] : []),
-    ],
+  const {adapter, device, context, canvasTextureFormat} = await Screen.gpu(navigator.gpu, canvas, {
+    optionalFeatures: ['timestamp-query'],
   });
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
-
-  // 2: Create a shader module from the shaders template literal
-  const shaderModule = device.createShaderModule({
-    code: shaders
-  });
-
-  // 3: Get reference to the canvas to render on
-  const canvas = document.querySelector('#gpuCanvas');
-
-  const devicePixelRatio = window.devicePixelRatio;
-  canvas.style.width = `${document.body.clientWidth}px`;
-  canvas.style.height = `${document.body.clientHeight}px`;
-  canvas.width = canvas.clientWidth * devicePixelRatio;
-  canvas.height = canvas.clientHeight * devicePixelRatio;
-
-  const context = canvas.getContext('webgpu');
-
-  context.configure({
-    device: device,
-    format: textureFormat,
-    colorSpace: 'display-p3',
-    toneMapping: {
-      mode: 'extended',
-    },
-    alphaMode: 'premultiplied'
-  });
 
   // 4: Create vertex buffer to contain vertex data
   const cubeVertexBuffer = device.createBuffer({
@@ -337,6 +295,12 @@ async function init() {
     },
   ];
 
+  const shaders = await fetch('shaders.wgsl').then(response => response.text());
+
+  const shaderModule = device.createShaderModule({
+    code: shaders
+  });
+
   const pipelineDescriptor = {
     vertex: {
       module: shaderModule,
@@ -348,7 +312,7 @@ async function init() {
       entryPoint: 'fragment_main',
       targets: [
         {
-          format: textureFormat
+          format: canvasTextureFormat
         },
       ],
     },
@@ -403,7 +367,7 @@ async function init() {
 
     cubeTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
-      format: textureFormat,
+      format: canvasTextureFormat,
       usage:
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |
@@ -423,7 +387,7 @@ async function init() {
 
     grassTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
-      format: textureFormat,
+      format: canvasTextureFormat,
       usage:
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_DST |

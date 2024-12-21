@@ -5,6 +5,8 @@ import {
   TimingValuesDisplay,
 } from '../common/webgpu-timing.js';
 
+import { Screen } from '../common/display.js';
+
 const timing = new TimingManager(
   new RollingAverage(),
   new RollingAverage(),
@@ -15,46 +17,13 @@ const timingDisplay = new TimingValuesDisplay(document.body);
 
 // Main function
 async function init() {
-  const textureFormat = 'rgba16float';
+  const {canvas, displayW, displayH} = Screen.setup(document.body, window.devicePixelRatio);
 
-  if (!navigator.gpu) {
-    throw Error('WebGPU not supported.');
-  }
-
-  const adapter = await navigator.gpu.requestAdapter();
-  if (!adapter) {
-    throw Error('Couldn\'t request WebGPU adapter.');
-  }
-
-  const canTimestamp = adapter.features.has('timestamp-query');
-
-  const device = await adapter?.requestDevice({
-    requiredFeatures: [
-      ...(canTimestamp ? ['timestamp-query'] : []),
-    ],
+  const {adapter, device, context, canvasTextureFormat} = await Screen.gpu(navigator.gpu, canvas, {
+    optionalFeatures: ['timestamp-query'],
   });
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
-
-  const canvas = document.querySelector('#gpuCanvas');
-
-  const devicePixelRatio = window.devicePixelRatio;
-  canvas.style.width = `${document.body.clientWidth}px`;
-  canvas.style.height = `${document.body.clientHeight}px`;
-  canvas.width = canvas.clientWidth * devicePixelRatio;
-  canvas.height = canvas.clientHeight * devicePixelRatio;
-
-  const context = canvas.getContext('webgpu');
-
-  context.configure({
-    device: device,
-    format: textureFormat,
-    colorSpace: 'display-p3',
-    toneMapping: {
-      mode: 'extended',
-    },
-    alphaMode: 'premultiplied',
-  });
 
   const pipelineDescriptor = {
     vertex: {
@@ -68,7 +37,7 @@ async function init() {
       }),
       targets: [
         {
-          format: textureFormat
+          format: canvasTextureFormat,
         },
       ],
     },
