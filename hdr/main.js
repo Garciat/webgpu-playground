@@ -4,6 +4,8 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
+import { download } from '../common/utils.js';
+
 import {
   RollingAverage,
   TimingManager,
@@ -284,7 +286,7 @@ async function main() {
     },
   ];
 
-  const shaders = await fetch('shaders.wgsl').then(response => response.text());
+  const shaders = await download('shaders.wgsl', 'text');
 
   const shaderModule = device.createShaderModule({
     code: shaders
@@ -343,14 +345,14 @@ async function main() {
 
   let cubeTexture;
   {
-    const response = await fetch('./lulu.png');
     const imageBitmap = await createImageBitmap(
-      await response.blob(),
+      await download('lulu.png', 'blob'),
       {
         colorSpaceConversion: 'none',
         resizeQuality: 'high',
         premultiplyAlpha: 'none',
-      });
+      },
+    );
 
     cubeTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
@@ -369,8 +371,7 @@ async function main() {
 
   let grassTexture;
   {
-    const response = await fetch('./grass.jpg');
-    const imageBitmap = await createImageBitmap(await response.blob());
+    const imageBitmap = await createImageBitmap(await download('grass.jpg', 'blob'),);
 
     grassTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
