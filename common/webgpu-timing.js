@@ -18,13 +18,91 @@ export class RollingAverage {
   }
 }
 
+export class TimingManager {
+  #fps;
+  #js;
+  #gpu;
+
+  #lastFrameTimestamp = 0;
+  #currentFrameTimestamp = 0;
+  #frameStartTimestamp = 0;
+
+  constructor(
+    fpsSummary,
+    jsSummary,
+    gpuSummary,
+  ) {
+    this.#fps = fpsSummary;
+    this.#js = jsSummary;
+    this.#gpu = gpuSummary;
+  }
+
+  beginFrame(timestamp) {
+    this.#currentFrameTimestamp = timestamp;
+    this.#frameStartTimestamp = performance.now();
+  }
+
+  endFrame(gpuTimePromise) {
+    const frameEndTimestamp = performance.now();
+    const jsTime = frameEndTimestamp - this.#frameStartTimestamp;
+
+    const frameTime = (this.#currentFrameTimestamp - this.#lastFrameTimestamp) / 1000;
+    this.#lastFrameTimestamp = this.#currentFrameTimestamp;
+
+    gpuTimePromise.then(gpuTime => {
+      this.#gpu.addSample(gpuTime / 1000);
+    });
+
+    this.#fps.addSample(1 / frameTime);
+    this.#js.addSample(jsTime);
+
+    return {
+      fps: this.#fps.get(),
+      js: this.#js.get(),
+      gpu: this.#gpu.get(),
+    };
+  }
+}
+
+export class TimingValuesDisplay {
+  #style = {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    margin: 0,
+    padding: CSS.em(0.5),
+    'background-color': 'rgba(0, 0, 0, 0.8)',
+    color: 'white',
+  };
+
+  #element;
+
+  constructor(parent) {
+    this.#element = document.createElement('pre');
+
+    for (let key of Object.keys(this.#style)) {
+      this.#element.style.setProperty(key, this.#style[key]);
+    }
+
+    parent.appendChild(this.#element);
+  }
+
+  display(timingValues) {
+    this.#element.textContent = `\
+fps: ${timingValues.fps.toFixed(1)}
+js: ${timingValues.js.toFixed(3)}ms
+gpu: ${`${timingValues.gpu.toFixed(1)}µs`}
+`;
+  }
+}
+
 function assert(cond, msg = '') {
   if (!cond) {
     throw new Error(msg);
   }
 }
 
-export class TimingHelper {
+export class GPUTimingAdapter {
   #canTimestamp;
   #device;
   #querySet;

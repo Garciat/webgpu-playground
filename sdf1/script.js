@@ -4,11 +4,20 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
-import { RollingAverage, TimingHelper } from '../common/webgpu-timing.js';
+import {
+  RollingAverage,
+  TimingManager,
+  GPUTimingAdapter,
+  TimingValuesDisplay,
+} from '../common/webgpu-timing.js';
 
-const fpsAverage = new RollingAverage();
-const jsAverage = new RollingAverage();
-const gpuAverage = new RollingAverage();
+const timing = new TimingManager(
+  new RollingAverage(),
+  new RollingAverage(),
+  new RollingAverage(),
+);
+
+const timingDisplay = new TimingValuesDisplay(document.body);
 
 // Main function
 async function init() {
@@ -33,7 +42,7 @@ async function init() {
     ],
   });
 
-  const timingHelper = new TimingHelper(device);
+  const gpuTimingAdapter = new GPUTimingAdapter(device);
 
   const shaderModule = device.createShaderModule({
     code: shaders
@@ -96,8 +105,8 @@ async function init() {
 
   {
     // start at center
-    let mx = displayW/2;
-    let my = displayH/2;
+    let mx = displayW / 2;
+    let my = displayH / 2;
     uniformsData_mouse[0] = mx * devicePixelRatio;
     uniformsData_mouse[1] = my * devicePixelRatio;
   }
@@ -131,14 +140,10 @@ async function init() {
     uniformsData_time[0] = time;
   }
 
-  let then = 0;
-  function frame(now) {
-    const time = now / 1000;
+  function frame(timestamp) {
+    timing.beginFrame(timestamp);
 
-    const deltaTime = time - then;
-    then = time;
-
-    const startTime = performance.now();
+    const time = timestamp / 1000;
 
     updateUniforms(time);
     device.queue.writeBuffer(uniformsBuffer, 0, uniformsData);
@@ -156,7 +161,7 @@ async function init() {
       ],
     };
 
-    const passEncoder = timingHelper.beginRenderPass(commandEncoder, renderPassDescriptor);
+    const passEncoder = gpuTimingAdapter.beginRenderPass(commandEncoder, renderPassDescriptor);
 
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
@@ -166,20 +171,8 @@ async function init() {
 
     device.queue.submit([commandEncoder.finish()]);
 
-    timingHelper.getResult().then(gpuTime => {
-      gpuAverage.addSample(gpuTime / 1000);
-    });
-
-    const jsTime = performance.now() - startTime;
-
-    fpsAverage.addSample(1 / deltaTime);
-    jsAverage.addSample(jsTime);
-
-    window.myPerformanceInfo.textContent = `\
-fps: ${fpsAverage.get().toFixed(1)}
-js: ${jsAverage.get().toFixed(3)}ms
-gpu: ${canTimestamp ? `${gpuAverage.get().toFixed(1)}µs` : 'N/A'}
-`;
+    let timingValues = timing.endFrame(gpuTimingAdapter.getResult());
+    timingDisplay.display(timingValues);
 
     requestAnimationFrame(frame);
   }

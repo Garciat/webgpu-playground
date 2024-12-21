@@ -4,7 +4,12 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
-import { RollingAverage, TimingHelper } from '../common/webgpu-timing.js';
+import {
+  RollingAverage,
+  TimingManager,
+  GPUTimingAdapter,
+  TimingValuesDisplay,
+} from '../common/webgpu-timing.js';
 
 function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
   return [
@@ -155,9 +160,13 @@ const lights = new Float32Array([
 ]);
 const lightCount = lights.byteLength / lightSize;
 
-const fpsAverage = new RollingAverage();
-const jsAverage = new RollingAverage();
-const gpuAverage = new RollingAverage();
+const timing = new TimingManager(
+  new RollingAverage(),
+  new RollingAverage(),
+  new RollingAverage(),
+);
+
+const timingDisplay = new TimingValuesDisplay(document.body);
 
 // Main function
 async function init() {
@@ -185,7 +194,7 @@ async function init() {
     ],
   });
 
-  const timingHelper = new TimingHelper(device);
+  const gpuTimingAdapter = new GPUTimingAdapter(device);
 
   // 2: Create a shader module from the shaders template literal
   const shaderModule = device.createShaderModule({
@@ -539,14 +548,10 @@ async function init() {
     }
   }
 
-  let then = 0;
-  function frame(now) {
-    const time = now / 1000;
+  function frame(timestamp) {
+    timing.beginFrame(timestamp);
 
-    const deltaTime = time - then;
-    then = time;
-
-    const startTime = performance.now();
+    const time = timestamp / 1000;
 
     updateCamera(time);
     updateUniforms(time);
@@ -583,7 +588,7 @@ async function init() {
       },
     };
 
-    const passEncoder = timingHelper.beginRenderPass(commandEncoder, renderPassDescriptor);
+    const passEncoder = gpuTimingAdapter.beginRenderPass(commandEncoder, renderPassDescriptor);
 
     // 9: Draw the triangle
 
@@ -606,20 +611,8 @@ async function init() {
     // 10: End frame by passing array of command buffers to command queue for execution
     device.queue.submit([commandEncoder.finish()]);
 
-    timingHelper.getResult().then(gpuTime => {
-      gpuAverage.addSample(gpuTime / 1000);
-    });
-
-    const jsTime = performance.now() - startTime;
-
-    fpsAverage.addSample(1 / deltaTime);
-    jsAverage.addSample(jsTime);
-
-    window.myPerformanceInfo.textContent = `\
-fps: ${fpsAverage.get().toFixed(1)}
-js: ${jsAverage.get().toFixed(3)}ms
-gpu: ${canTimestamp ? `${gpuAverage.get().toFixed(1)}µs` : 'N/A'}
-`;
+    let timingValues = timing.endFrame(gpuTimingAdapter.getResult());
+    timingDisplay.display(timingValues);
 
     requestAnimationFrame(frame);
   }
