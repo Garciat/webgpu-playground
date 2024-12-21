@@ -91,7 +91,7 @@ export class TimingValuesDisplay {
     this.#element.textContent = `\
 fps: ${timingValues.fps.toFixed(1)}
 js: ${timingValues.js.toFixed(3)}ms
-gpu: ${`${timingValues.gpu.toFixed(1)}µs`}
+gpu: ${isNaN(timingValues.gpu) ? 'N/A' : `${timingValues.gpu.toFixed(1)}µs`}
 `;
   }
 }
@@ -183,7 +183,7 @@ export class GPUTimingAdapter {
 
   async getResult() {
     if (!this.#canTimestamp) {
-      return 0;
+      return NaN;
     }
     assert(this.#state === 'wait for result', 'must call resolveTiming');
     this.#state = 'free';
