@@ -159,15 +159,17 @@ async function init() {
           view: context.getCurrentTexture().createView()
         },
       ],
+      ...gpuTimingAdapter.getPassDescriptorMixin(),
     };
 
-    const passEncoder = gpuTimingAdapter.beginRenderPass(commandEncoder, renderPassDescriptor);
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
     passEncoder.setPipeline(renderPipeline);
     passEncoder.setBindGroup(0, uniformBindGroup);
     passEncoder.draw(6);
 
     passEncoder.end();
+    gpuTimingAdapter.trackPassEnd(commandEncoder);
 
     device.queue.submit([commandEncoder.finish()]);
 

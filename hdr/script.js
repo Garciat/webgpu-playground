@@ -586,9 +586,10 @@ async function init() {
         depthLoadOp: 'clear',
         depthStoreOp: 'store',
       },
+      ...gpuTimingAdapter.getPassDescriptorMixin(),
     };
 
-    const passEncoder = gpuTimingAdapter.beginRenderPass(commandEncoder, renderPassDescriptor);
+    const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
     // 9: Draw the triangle
 
@@ -607,6 +608,7 @@ async function init() {
 
     // End the render pass
     passEncoder.end();
+    gpuTimingAdapter.trackPassEnd(commandEncoder);
 
     // 10: End frame by passing array of command buffers to command queue for execution
     device.queue.submit([commandEncoder.finish()]);
