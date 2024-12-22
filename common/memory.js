@@ -25,6 +25,21 @@ import { assert } from './utils.js';
  * @typedef {T extends IType<infer R> ? R : never} ITypeR
  */
 
+/**
+ * @template T
+ * @typedef {[T, T]} Tup2
+ */
+
+/**
+ * @template T
+ * @typedef {[T, T, T]} Tup3
+ */
+
+/**
+ * @template T
+ * @typedef {[T, T, T, T]} Tup4
+ */
+
 // Meta types
 
 /**
@@ -225,7 +240,12 @@ export class ArrayType {
 
 /**
  * @template {StructDescriptor<S>} S
- * @implements {IType<any[]>}
+ * @typedef {{[Name in keyof S]: ITypeR<S[Name]['type']>}} StructR
+ */
+
+/**
+ * @template {StructDescriptor<S>} S
+ * @implements {IType<StructR<S>>}
  */
 export class Struct {
   /**
@@ -252,7 +272,7 @@ export class Struct {
     this.#fields = Array(Object.keys(descriptor).length);
     this.#fieldsByName = /** @type {StructFieldsOf<S>} */ ({});
 
-    for (const name of /** @type {(keyof S)[]} */ (Object.keys(descriptor))) {
+    for (const name of typedObjectKeys(descriptor)) {
       /**
        * @type {StructFieldDescriptor<any, IType<any>>}
        */
@@ -318,56 +338,10 @@ export class Struct {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {any[]}
+   * @returns {StructR<S>}
    */
   read(view, offset = 0) {
-    const values = Array(this.#fields.length);
-
-    for (const field of this.#fields) {
-      values[field.index] = field.type.read(view, offset + field.offset);
-    }
-
-    return values;
-  }
-
-  /**
-   * @param {DataView} view
-   * @param {any[]} values
-   * @param {number} [offset=0]
-   */
-  write(view, values, offset = 0) {
-    for (const field of this.#fields) {
-      field.type.write(view, values[field.index], offset + field.offset);
-    }
-  }
-
-  /**
-   * @param {DataView} view
-   * @param {number} index
-   * @param {number} [offset=0]
-   * @returns {any[]}
-   */
-  readAt(view, index, offset = 0) {
-    return this.read(view, index * this.byteSize + offset);
-  }
-
-  /**
-   * @param {DataView} view
-   * @param {number} index
-   * @param {any[]} value
-   * @param {number} [offset=0]
-   */
-  writeAt(view, index, value, offset = 0) {
-    this.write(view, value, index * this.byteSize + offset);
-  }
-
-  /**
-   * @param {DataView} view
-   * @param {number} offset
-   * @returns {{[Name in keyof S]: any}}
-   */
-  readObject(view, offset = 0) {
-    const obj = /** @type {{[Name in keyof S]: any}} */ ({});
+    const obj = /** @type {StructR<S>} */ ({});
 
     for (const field of this.#fields) {
       obj[field.name] = field.type.read(view, offset + field.offset);
@@ -378,12 +352,13 @@ export class Struct {
 
   /**
    * @param {DataView} view
-   * @param {{[Name in keyof S]: any}} values
+   * @param {StructR<S>} values
    * @param {number} [offset=0]
    */
-  writeObject(view, values, offset = 0) {
-    for (const field of this.#fields) {
-      field.type.write(view, values[field.name], offset + field.offset);
+  write(view, values, offset = 0) {
+    for (const name of typedObjectKeys(this.#fieldsByName)) {
+      const field = this.#fieldsByName[name];
+      field.type.write(view, values[name], offset + field.offset);
     }
   }
 
@@ -391,20 +366,20 @@ export class Struct {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {{[Name in keyof S]: any}}
+   * @returns {StructR<S>}
    */
-  readObjectAt(view, index, offset = 0) {
-    return this.readObject(view, index * this.byteSize + offset);
+  readAt(view, index, offset = 0) {
+    return this.read(view, index * this.byteSize + offset);
   }
 
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {{[Name in keyof S]: any}} value
+   * @param {StructR<S>} value
    * @param {number} [offset=0]
    */
-  writeObjectAt(view, index, value, offset = 0) {
-    this.writeObject(view, value, index * this.byteSize + offset);
+  writeAt(view, index, value, offset = 0) {
+    this.write(view, value, index * this.byteSize + offset);
   }
 
   /**
@@ -573,7 +548,7 @@ class StructField {
 // Matrix types
 
 /**
- * @implements {IType<number[][]>}
+ * @implements {IType<Tup2<Tup2<number>>>}
  */
 export class Mat2x2 {
   /**
@@ -616,7 +591,7 @@ export class Mat2x2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup2<Tup2<number>>}
    */
   read(view, offset = 0) {
     return [
@@ -633,7 +608,7 @@ export class Mat2x2 {
 
   /**
    * @param {DataView} view
-   * @param {number[][]} value
+   * @param {Tup2<Tup2<number>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -647,7 +622,7 @@ export class Mat2x2 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup2<Tup2<number>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -656,7 +631,7 @@ export class Mat2x2 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[][]} value
+   * @param {Tup2<Tup2<number>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -715,7 +690,7 @@ export class Mat2x2 {
 }
 
 /**
- * @implements {IType<number[][]>}
+ * @implements {IType<Tup3<Tup3<number>>>}
  */
 export class Mat3x3 {
   /**
@@ -758,7 +733,7 @@ export class Mat3x3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup3<Tup3<number>>}
    */
   read(view, offset = 0) {
     return [
@@ -782,7 +757,7 @@ export class Mat3x3 {
 
   /**
    * @param {DataView} view
-   * @param {number[][]} value
+   * @param {Tup3<Tup3<number>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -801,7 +776,7 @@ export class Mat3x3 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup3<Tup3<number>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -810,7 +785,7 @@ export class Mat3x3 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[][]} value
+   * @param {Tup3<Tup3<number>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -869,7 +844,7 @@ export class Mat3x3 {
 }
 
 /**
- * @implements {IType<number[][]>}
+ * @implements {IType<Tup4<Tup4<number>>>}
  */
 export class Mat4x4 {
   /**
@@ -912,7 +887,7 @@ export class Mat4x4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup4<Tup4<number>>}
    */
   read(view, offset = 0) {
     return [
@@ -945,7 +920,7 @@ export class Mat4x4 {
 
   /**
    * @param {DataView} view
-   * @param {number[][]} value
+   * @param {Tup4<Tup4<number>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -971,7 +946,7 @@ export class Mat4x4 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[][]}
+   * @returns {Tup4<Tup4<number>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -980,7 +955,7 @@ export class Mat4x4 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[][]} value
+   * @param {Tup4<Tup4<number>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1041,7 +1016,7 @@ export class Mat4x4 {
 // Vector types
 
 /**
- * @implements {IType<number[]>}
+ * @implements {IType<Tup2<number>>}
  */
 export class Vec2 {
   /**
@@ -1084,7 +1059,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup2<number>}
    */
   read(view, offset = 0) {
     return [
@@ -1095,7 +1070,7 @@ export class Vec2 {
 
   /**
    * @param {DataView} view
-   * @param {number[]} value
+   * @param {Tup2<number>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1107,7 +1082,7 @@ export class Vec2 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup2<number>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1116,7 +1091,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[]} value
+   * @param {Tup2<number>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1179,7 +1154,7 @@ export class Vec2 {
 }
 
 /**
- * @implements {IType<number[]>}
+ * @implements {IType<Tup3<number>>}
  */
 export class Vec3 {
   /**
@@ -1223,7 +1198,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup3<number>}
    */
   read(view, offset = 0) {
     return [
@@ -1235,7 +1210,7 @@ export class Vec3 {
 
   /**
    * @param {DataView} view
-   * @param {number[]} value
+   * @param {Tup3<number>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1248,7 +1223,7 @@ export class Vec3 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup3<number>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1257,7 +1232,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[]} value
+   * @param {Tup3<number>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1342,7 +1317,7 @@ export class Vec3 {
 }
 
 /**
- * @implements {IType<number[]>}
+ * @implements {IType<Tup4<number>>}
  */
 export class Vec4 {
   /**
@@ -1401,7 +1376,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup4<number>}
    */
   read(view, offset = 0) {
     return [
@@ -1414,7 +1389,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {number[]} value
+   * @param {Tup4<number>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1428,7 +1403,7 @@ export class Vec4 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {number[]}
+   * @returns {Tup4<number>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1437,7 +1412,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {number[]} value
+   * @param {Tup4<number>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1819,4 +1794,13 @@ export const Mat4x4F = new Mat4x4(Float32);
 function nextMultipleOf(value, multiple) {
   const extra = value % multiple;
   return extra ? value + multiple - extra : value;
+}
+
+/**
+ * @template {object} T
+ * @param {T} obj
+ * @returns {Array<keyof T>}
+ */
+function typedObjectKeys(obj) {
+  return /** @type {(keyof T)[]} */ (Object.keys(obj));
 }
