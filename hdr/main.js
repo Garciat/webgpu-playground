@@ -74,9 +74,9 @@ const CubeMeshData = memory.allocate(CubeMesh);
     // Top face
     [
       { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
-      { position: [1, 1, -1, 1], color: [0, 1, 0, 1], normal: [0, 1, 0], uv: [1, 0] },
+      { position: [-1, 1, 1, 1], color: [0, 1, 0, 1], normal: [0, 1, 0], uv: [0, 1] },
       { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
-      { position: [-1, 1, 1, 1], color: [1, 1, 1, 1], normal: [0, 1, 0], uv: [0, 1] },
+      { position: [1, 1, -1, 1], color: [1, 1, 1, 1], normal: [0, 1, 0], uv: [1, 0] },
       { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
       { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
     ],
