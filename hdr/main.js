@@ -17,24 +17,24 @@ import { Screen } from '../common/display.js';
 
 import * as memory from '../common/memory.js';
 
-const Vertex = new memory.Struct([
-  { name: 'position', type: memory.Vec4F },
-  { name: 'color', type: memory.Vec4F },
-  { name: 'normal', type: memory.Vec3F },
-  { name: 'uv', type: memory.Vec2F },
-]);
+const Vertex = new memory.Struct({
+  position: { index: 0, type: memory.Vec4F },
+  color: { index: 1, type: memory.Vec4F },
+  normal: { index: 2, type: memory.Vec3F },
+  uv: { index: 3, type: memory.Vec2F },
+});
 
-const Instance = new memory.Struct([
-  { name: 'tint', type: memory.Vec4F },
-  { name: 'model', type: memory.Mat4x4F },
-  { name: 'mvMatrix', type: memory.Mat4x4F },
-  { name: 'normalMatrix', type: memory.Mat4x4F },
-]);
+const Instance = new memory.Struct({
+  tint: { index: 0, type: memory.Vec4F },
+  model: { index: 1, type: memory.Mat4x4F },
+  mvMatrix: { index: 2, type: memory.Mat4x4F },
+  normalMatrix: { index: 3, type: memory.Mat4x4F },
+});
 
-const Light = new memory.Struct([
-  { name: 'position', type: memory.Vec4F },
-  { name: 'color', type: memory.Vec4F },
-]);
+const Light = new memory.Struct({
+  position: { index: 0, type: memory.Vec4F },
+  color: { index: 1, type: memory.Vec4F },
+});
 
 const VertexQuad = new memory.ArrayOf(Vertex, 6);
 
@@ -44,10 +44,10 @@ const PlaneDivisions = 10;
 
 const PlaneMesh = new memory.ArrayOf(VertexQuad, PlaneDivisions * PlaneDivisions);
 
-const CameraUniform = new memory.Struct([
-  { name: 'projection', type: memory.Mat4x4F },
-  { name: 'view', type: memory.Mat4x4F },
-]);
+const CameraUniform = new memory.Struct({
+  projection: { index: 0, type: memory.Mat4x4F },
+  view: { index: 1, type: memory.Mat4x4F },
+});
 
 const CubeMeshData = memory.allocate(CubeMesh);
 {
@@ -119,7 +119,7 @@ const CubeInstanceData = memory.allocate(Instance, 2);
     const position = vec3.fromValues(0, 0, 0);
     const scale = vec3.fromValues(0.5, 0.5, 0.5);
 
-    Instance.fields.tint.write(view, 0, [1, 1, 1, 1]);
+    Instance.fields.tint.writeAt(view, 0, [1, 1, 1, 1]);
 
     const model = Instance.fields.model.view(CubeInstanceData, 0);
     mat4.identity(model);
@@ -132,9 +132,9 @@ const CubeInstanceData = memory.allocate(Instance, 2);
     const position = vec3.fromValues(0, 0, -3);
     const scale = vec3.fromValues(0.05, 0.05, 0.05);
 
-    Instance.fields.tint.write(view, Instance.byteSize, [1, 1, 1, 1]);
+    Instance.fields.tint.writeAt(view, 1, [1, 1, 1, 1]);
 
-    const model = Instance.fields.model.view(CubeInstanceData, Instance.byteSize);
+    const model = Instance.fields.model.viewAt(CubeInstanceData, 1);
     mat4.identity(model);
     mat4.translate(model, position, model);
     mat4.scale(model, scale, model);
@@ -504,7 +504,7 @@ async function main() {
 
   function updateInstances(time) {
     for (let i = 0; i < Instance.count(CubeInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObject(CubeInstanceData, i * Instance.byteSize);
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(CubeInstanceData, i);
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
@@ -520,7 +520,7 @@ async function main() {
     }
 
     for (let i = 0; i < Instance.count(PlaneInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObject(PlaneInstanceData, i * Instance.byteSize);
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(PlaneInstanceData, i);
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);

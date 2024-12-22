@@ -1,9 +1,48 @@
+// Type annotations
+
+/**
+ * @typedef {'primitive'|'vector'|'matrix'|'struct'|'array'} IMetaType
+ */
+
+/**
+ * @template R
+ * @typedef {object} IType
+ * @property {IMetaType} type
+ * @property {number} byteSize
+ * @property {number} alignment
+ * @property {(view: DataView) => number} count
+ * @property {(view: DataView, offset?: number) => R} read
+ * @property {(view: DataView, value: R, offset?: number) => void} write
+ * @property {(view: DataView, index: number, offset?: number) => R} readAt
+ * @property {(view: DataView, index: number, value: R, offset?: number) => void} writeAt
+ * @property {(buffer: ArrayBuffer, offset?: number, length?: number) => DataView} view
+ */
+
 // Meta types
 
+/**
+ * @type {IMetaType}
+ */
 const TYPE_PRIMITIVE = 'primitive';
+
+/**
+ * @type {IMetaType}
+ */
 const TYPE_VECTOR = 'vector';
+
+/**
+ * @type {IMetaType}
+ */
 const TYPE_MATRIX = 'matrix';
+
+/**
+ * @type {IMetaType}
+ */
 const TYPE_STRUCT = 'struct';
+
+/**
+ * @type {IMetaType}
+ */
 const TYPE_ARRAY = 'array';
 
 // Public helpers
@@ -12,20 +51,28 @@ export function allocate(type, count = 1) {
   return new ArrayBuffer(type.byteSize * count);
 }
 
-// Internal helpers
-
-function assert(condition, message) {
-  if (!condition) {
-    throw Error(message);
-  }
-}
-
 // Array type
 
+/**
+ * @template R
+ * @template {IType<R>} T
+ * @implements {IType<R[]>}
+ */
 export class ArrayOf {
+  /**
+   * @type {IType<R>}
+   */
   #type;
+
+  /**
+   * @type {number}
+   */
   #length;
 
+  /**
+   * @param {IType<R>} type
+   * @param {number} length
+   */
   constructor(type, length) {
     this.#type = type;
     this.#length = length;
@@ -51,7 +98,7 @@ export class ArrayOf {
     return view.byteLength / this.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     const values = Array(this.#length);
 
     for (let i = 0; i < this.#length; i++) {
@@ -61,43 +108,64 @@ export class ArrayOf {
     return values;
   }
 
-  write(view, values, offset=0) {
+  /**
+   * @param {DataView} view
+   * @param {R[]} values
+   * @param {number} [offset=0]
+   */
+  write(view, values, offset = 0) {
     for (let i = 0; i < this.#length; i++) {
       this.#type.write(view, values[i], offset + i * this.#type.byteSize);
     }
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * this.#length);
   }
 
-  get(view, index, offset=0) {
+  get(view, index, offset = 0) {
     return this.#type.read(view, offset + index * this.#type.byteSize);
   }
 
-  set(view, index, value, offset=0) {
+  set(view, index, value, offset = 0) {
     this.#type.write(view, value, offset + index * this.#type.byteSize);
   }
 }
 
 // Struct type
 
+/**
+ * @template R
+ * @template {IType<R>} T
+ * @typedef {object} StructFieldDescriptor
+ * @property {number} index
+ * @property {T} type
+ */
+
+/**
+ * @typedef {{[name: string]: StructFieldDescriptor<any, any>}} StructDescriptor
+ */
+
+/**
+ * @template {StructDescriptor} S
+ * @implements {IType<any[]>}
+ */
 export class Struct {
   /**
-   * @type {Array<StructField>} fields
+   * @type {Array<StructField<any>>} fields
    */
   #fields;
 
   /**
-   * @type {{[name: string]: StructField}} fieldsByName
+   * @type {{[Name in keyof S]: StructField<S[Name]>}} fieldsByName
    */
   #fieldsByName;
 
@@ -107,21 +175,20 @@ export class Struct {
   #size;
 
   /**
-   * @param {{name: string, type: any}[]} fields
+   * @param {S} descriptor
    */
-  constructor(fields) {
+  constructor(descriptor) {
     let offset = 0;
 
-    this.#fields = fields.map((descriptor, index) => {
-      const field = new StructField(this, index, descriptor.name, descriptor.type, offset);
-      offset += field.byteSize; // TODO: alignment?
-      return field;
-    });
-
+    this.#fields = Array(Object.keys(descriptor).length);
     this.#fieldsByName = {};
-    for (const field of this.#fields) {
-      assert(!this.#fieldsByName[field.name], `Duplicate field name: ${field.name}`);
-      this.#fieldsByName[field.name] = field;
+
+    for (let name of Object.keys(descriptor)) {
+      const fieldDescriptor = descriptor[name];
+      const field = new StructField(this, fieldDescriptor.index, name, fieldDescriptor.type, offset);
+      offset += field.byteSize; // TODO: alignment?
+      this.#fields[fieldDescriptor.index] = field;
+      this.#fieldsByName[name] = field;
     }
 
     this.#size = offset;
@@ -151,7 +218,7 @@ export class Struct {
     return view.byteLength / this.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     const values = Array(this.#fields.length);
 
     for (const field of this.#fields) {
@@ -161,13 +228,18 @@ export class Struct {
     return values;
   }
 
-  write(view, values, offset=0) {
+  /**
+   * @param {DataView} view
+   * @param {R[]} values
+   * @param {number} [offset=0]
+   */
+  write(view, values, offset = 0) {
     for (const field of this.#fields) {
       field.type.write(view, values[field.index], offset + field.offset);
     }
   }
 
-  readObject(view, offset=0) {
+  readObject(view, offset = 0) {
     const obj = {};
 
     for (const field of this.#fields) {
@@ -177,34 +249,34 @@ export class Struct {
     return obj;
   }
 
-  writeObject(view, values, offset=0) {
+  writeObject(view, values, offset = 0) {
     for (const field of this.#fields) {
       field.type.write(view, values[field.name], offset + field.offset);
     }
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  readObjectAt(view, index, offset=0) {
+  readObjectAt(view, index, offset = 0) {
     return this.readObject(view, index * this.byteSize + offset);
   }
 
-  writeObjectAt(view, index, value, offset=0) {
+  writeObjectAt(view, index, value, offset = 0) {
     this.writeObject(view, value, index * this.byteSize + offset);
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     // TODO: ok to default to Float32?
     return Float32.view(buffer, offset, this.#size * length / Float32.byteSize);
   }
 
-  viewObject(buffer, offset=0) {
+  viewObject(buffer, offset = 0) {
     const obj = {};
 
     for (const field of this.#fields) {
@@ -214,18 +286,47 @@ export class Struct {
     return obj;
   }
 
-  viewObjectAt(buffer, index, offset=0) {
+  viewObjectAt(buffer, index, offset = 0) {
     return this.viewObject(buffer, index * this.byteSize + offset);
   }
 }
 
+/**
+ * @template {StructFieldDescriptor<any, any>} F
+ */
 class StructField {
+  /**
+   * @type {Struct<any>} parent
+   */
   #parent;
+
+  /**
+   * @type {number} index
+   */
   #index;
+
+  /**
+   * @type {string} name
+   */
   #name;
+
+  /**
+   * @type {F['type']} type
+   */
   #type;
+
+  /**
+   * @type {number} offset
+   */
   #offset;
 
+  /**
+   * @param {Struct<any>} parent
+   * @param {number} index
+   * @param {string} name
+   * @param {T} type
+   * @param {number} offset
+   */
   constructor(parent, index, name, type, offset) {
     this.#parent = parent;
     this.#index = index;
@@ -258,21 +359,36 @@ class StructField {
     return this.#offset;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return this.#type.read(view, this.#offset + offset);
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.#type.write(view, value, this.#offset + offset);
   }
 
-  view(buffer, offset=0, length=1) {
+  readAt(view, index, offset = 0) {
+    return this.#type.read(view, index * this.#parent.byteSize + this.#offset + offset);
+  }
+
+  writeAt(view, index, value, offset = 0) {
+    this.#type.write(view, value, index * this.#parent.byteSize + this.#offset + offset);
+  }
+
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, this.#offset + offset, length);
+  }
+
+  viewAt(buffer, index, offset = 0) {
+    return this.#type.view(buffer, index * this.#parent.byteSize + this.#offset + offset);
   }
 }
 
 // Matrix types
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Mat2x2 {
   #type;
 
@@ -309,7 +425,7 @@ export class Mat2x2 {
     return this.index(row, column) * this.#type.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.get(view, 0, 0, offset),
       this.get(view, 0, 1, offset),
@@ -318,34 +434,37 @@ export class Mat2x2 {
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.set(view, value[0], 0, 0, offset);
     this.set(view, value[1], 0, 1, offset);
     this.set(view, value[2], 1, 0, offset);
     this.set(view, value[3], 1, 1, offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  get(view, row, column, offset=0) {
+  get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
   }
 
-  set(view, value, row, column, offset=0) {
+  set(view, value, row, column, offset = 0) {
     this.#type.write(view, value, offset + this.offset(row, column));
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 4);
   }
 }
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Mat3x3 {
   #type;
 
@@ -382,7 +501,7 @@ export class Mat3x3 {
     return this.index(row, column) * this.#type.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.get(view, 0, 0, offset),
       this.get(view, 0, 1, offset),
@@ -396,7 +515,7 @@ export class Mat3x3 {
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.set(view, value[0], 0, 0, offset);
     this.set(view, value[1], 0, 1, offset);
     this.set(view, value[2], 0, 2, offset);
@@ -408,27 +527,30 @@ export class Mat3x3 {
     this.set(view, value[8], 2, 2, offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  get(view, row, column, offset=0) {
+  get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
   }
 
-  set(view, value, row, column, offset=0) {
+  set(view, value, row, column, offset = 0) {
     this.#type.write(view, value, offset + this.offset(row, column));
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 9);
   }
 }
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Mat4x4 {
   #type;
 
@@ -465,7 +587,7 @@ export class Mat4x4 {
     return this.index(row, column) * this.#type.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.get(view, 0, 0, offset),
       this.get(view, 0, 1, offset),
@@ -486,7 +608,7 @@ export class Mat4x4 {
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.set(view, value[0], 0, 0, offset);
     this.set(view, value[1], 0, 1, offset);
     this.set(view, value[2], 0, 2, offset);
@@ -505,29 +627,32 @@ export class Mat4x4 {
     this.set(view, value[15], 3, 3, offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  get(view, row, column, offset=0) {
+  get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
   }
 
-  set(view, value, row, column, offset=0) {
+  set(view, value, row, column, offset = 0) {
     this.#type.write(view, value, offset + this.offset(row, column));
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 16);
   }
 }
 
 // Vector types
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Vec2 {
   #type;
 
@@ -564,47 +689,50 @@ export class Vec2 {
     return view.byteLength / this.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.getX(view, offset),
       this.getY(view, offset),
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.setX(view, value[0], offset);
     this.setY(view, value[1], offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  getX(view, offset=0) {
+  getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
   }
 
-  getY(view, offset=0) {
+  getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
   }
 
-  setX(view, value, offset=0) {
+  setX(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetX);
   }
 
-  setY(view, value, offset=0) {
+  setY(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetY);
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 2);
   }
 }
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Vec3 {
   #type;
 
@@ -645,7 +773,7 @@ export class Vec3 {
     return view.byteLength / this.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.getX(view, offset),
       this.getY(view, offset),
@@ -653,49 +781,52 @@ export class Vec3 {
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.setX(view, value[0], offset);
     this.setY(view, value[1], offset);
     this.setZ(view, value[2], offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  getX(view, offset=0) {
+  getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
   }
 
-  getY(view, offset=0) {
+  getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
   }
 
-  getZ(view, offset=0) {
+  getZ(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetZ);
   }
 
-  setX(view, value, offset=0) {
+  setX(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetX);
   }
 
-  setY(view, value, offset=0) {
+  setY(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetY);
   }
 
-  setZ(view, value, offset=0) {
+  setZ(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetZ);
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 3);
   }
 }
 
+/**
+ * @implements {IType<number[]>}
+ */
 export class Vec4 {
   #type;
 
@@ -740,7 +871,7 @@ export class Vec4 {
     return view.byteLength / this.byteSize;
   }
 
-  read(view, offset=0) {
+  read(view, offset = 0) {
     return [
       this.getX(view, offset),
       this.getY(view, offset),
@@ -749,187 +880,200 @@ export class Vec4 {
     ];
   }
 
-  write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     this.setX(view, value[0], offset);
     this.setY(view, value[1], offset);
     this.setZ(view, value[2], offset);
     this.setW(view, value[3], offset);
   }
 
-  readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return read(view, index * this.byteSize + offset);
   }
 
-  writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     write(view, value, index * this.byteSize + offset);
   }
 
-  getX(view, offset=0) {
+  getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
   }
 
-  getY(view, offset=0) {
+  getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
   }
 
-  getZ(view, offset=0) {
+  getZ(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetZ);
   }
 
-  getW(view, offset=0) {
+  getW(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetW);
   }
 
-  setX(view, value, offset=0) {
+  setX(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetX);
   }
 
-  setY(view, value, offset=0) {
+  setY(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetY);
   }
 
-  setZ(view, value, offset=0) {
+  setZ(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetZ);
   }
 
-  setW(view, value, offset=0) {
+  setW(view, value, offset = 0) {
     this.#type.write(view, value, offset + this.offsetW);
   }
 
-  view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 4);
   }
 }
 
 // Primitive types
 
-export class Float32 {
-  static get type() {
+/**
+ * @implements {IType<number>}
+ */
+class Float32Impl {
+  get type() {
     return TYPE_PRIMITIVE;
   }
 
-  static toString() {
+  toString() {
     return 'Float32';
   }
 
-  static get byteSize() {
+  get byteSize() {
     return 4;
   }
 
-  static get alignment() {
+  get alignment() {
     return 4;
   }
 
-  static count(view) {
+  count(view) {
     return view.byteLength / this.byteSize;
   }
 
-  static read(view, offset=0) {
+  read(view, offset = 0) {
     return view.getFloat32(offset, true);
   }
 
-  static write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     view.setFloat32(offset, value, true);
   }
 
-  static readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return view.getFloat32(index * this.byteSize + offset, true);
   }
 
-  static writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     view.setFloat32(index * this.byteSize + offset, value, true);
   }
 
-  static view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return new Float32Array(buffer, offset, length);
   }
 }
 
-export class Uint32 {
-  static get type() {
+/**
+ * @implements {IType<number>}
+ */
+class Uint32Impl {
+  get type() {
     return TYPE_PRIMITIVE;
   }
 
-  static toString() {
+  toString() {
     return 'Uint32';
   }
 
-  static get byteSize() {
+  get byteSize() {
     return 4;
   }
 
-  static get alignment() {
+  get alignment() {
     return 4;
   }
 
-  static count(view) {
+  count(view) {
     return view.byteLength / this.byteSize;
   }
 
-  static read(view, offset=0) {
+  read(view, offset = 0) {
     return view.getUint32(offset, true);
   }
 
-  static write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     view.setUint32(offset, value, true);
   }
 
-  static readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return view.getUint32(index * this.byteSize + offset, true);
   }
 
-  static writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     view.setUint32(index * this.byteSize + offset, value, true);
   }
 
-  static view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return new Uint32Array(buffer, offset, length);
   }
 }
 
-export class Int32 {
-  static get type() {
+/**
+ * @implements {IType<number>}
+ */
+class Int32Impl {
+  get type() {
     return TYPE_PRIMITIVE;
   }
 
-  static toString() {
+  toString() {
     return 'Int32';
   }
 
-  static get byteSize() {
+  get byteSize() {
     return 4;
   }
 
-  static get alignment() {
+  get alignment() {
     return 4;
   }
 
-  static count(view) {
+  count(view) {
     return view.byteLength / this.byteSize;
   }
 
-  static read(view, offset=0) {
+  read(view, offset = 0) {
     return view.getInt32(offset, true);
   }
 
-  static write(view, value, offset=0) {
+  write(view, value, offset = 0) {
     view.setInt32(offset, value, true);
   }
 
-  static readAt(view, index, offset=0) {
+  readAt(view, index, offset = 0) {
     return view.getInt32(index * this.byteSize + offset, true);
   }
 
-  static writeAt(view, index, value, offset=0) {
+  writeAt(view, index, value, offset = 0) {
     view.setInt32(index * this.byteSize + offset, value, true);
   }
 
-  static view(buffer, offset=0, length=1) {
+  view(buffer, offset = 0, length = 1) {
     return new Int32Array(buffer, offset, length);
   }
 }
 
 // Type helpers
+
+export const Float32 = new Float32Impl();
+export const Uint32 = new Uint32Impl();
+export const Int32 = new Int32Impl();
 
 export const Vec2F = new Vec2(Float32);
 export const Vec3F = new Vec3(Float32);
@@ -937,3 +1081,11 @@ export const Vec4F = new Vec4(Float32);
 export const Mat2x2F = new Mat2x2(Float32);
 export const Mat3x3F = new Mat3x3(Float32);
 export const Mat4x4F = new Mat4x4(Float32);
+
+// Internal helpers
+
+function assert(condition, message) {
+  if (!condition) {
+    throw Error(message);
+  }
+}
