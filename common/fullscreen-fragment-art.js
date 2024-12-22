@@ -1,5 +1,7 @@
 /// <reference path="../vendored/webgpu-types.d.ts" />
 
+import * as memory from './memory.js';
+
 const StaticQuadVertWGSL = `
 @vertex
 fn main(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
@@ -10,6 +12,12 @@ fn main(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
   return vec4f(pos[index], 0.0, 1.0);
 }
 `;
+
+const Uniforms = new memory.Struct({
+  time: {index: 0, type: memory.Vec4F},
+  resolution: {index: 1, type: memory.Vec4F},
+  mouse: {index: 2, type: memory.Vec4F},
+});
 
 export class FullscreenFragmentArt {
   /**
@@ -44,21 +52,9 @@ export class FullscreenFragmentArt {
    */
   #uniformsBindGroup;
   /**
-   * @type {Float32Array}
+   * @type {ArrayBuffer}
    */
   #uniformsData;
-  /**
-   * @type {Float32Array}
-   */
-  #uniformsData_time;
-  /**
-   * @type {Float32Array}
-   */
-  #uniformsData_resolution;
-  /**
-   * @type {Float32Array}
-   */
-  #uniformsData_mouse;
 
   /**
    * @param {{
@@ -104,10 +100,7 @@ export class FullscreenFragmentArt {
       layout: 'auto',
     });
 
-    this.#uniformsData = new Float32Array(4 * 3);
-    this.#uniformsData_time = this.#uniformsData.subarray(0, 4);
-    this.#uniformsData_resolution = this.#uniformsData.subarray(4, 8);
-    this.#uniformsData_mouse = this.#uniformsData.subarray(8, 12);
+    this.#uniformsData = memory.allocate(Uniforms);
 
     this.#uniformsBuffer = device.createBuffer({
       size: this.#uniformsData.byteLength,
@@ -136,8 +129,7 @@ export class FullscreenFragmentArt {
   }
 
   #setResolution() {
-    this.#uniformsData_resolution[0] = this.#canvas.width;
-    this.#uniformsData_resolution[1] = this.#canvas.height;
+    Uniforms.fields.resolution.write(new DataView(this.#uniformsData), [this.#canvas.width, this.#canvas.height, 0, 0]);
   }
 
   /**
@@ -145,8 +137,7 @@ export class FullscreenFragmentArt {
    * @param {number} y
    */
   #setMousePositionClient(x, y) {
-    this.#uniformsData_mouse[0] = x * this.#pixelRatio;
-    this.#uniformsData_mouse[1] = y * this.#pixelRatio;
+    Uniforms.fields.mouse.write(new DataView(this.#uniformsData), [x * this.#pixelRatio, y * this.#pixelRatio, 0, 0]);
   }
 
   #attach() {
@@ -165,7 +156,8 @@ export class FullscreenFragmentArt {
    */
   render(timestamp, commandEncoder, textureView) {
     const time = timestamp / 1000;
-    this.#uniformsData_time[0] = time;
+
+    Uniforms.fields.time.write(new DataView(this.#uniformsData), [time, 0, 0, 0]);
 
     this.#device.queue.writeBuffer(this.#uniformsBuffer, 0, this.#uniformsData);
 
