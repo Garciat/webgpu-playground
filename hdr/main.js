@@ -36,13 +36,13 @@ const Light = new memory.Struct({
   color: { index: 1, type: memory.Vec4F },
 });
 
-const VertexQuad = new memory.ArrayOf(Vertex, 6);
+const VertexQuad = new memory.ArrayType(Vertex, 6);
 
-const CubeMesh = new memory.ArrayOf(VertexQuad, 6);
+const CubeMesh = new memory.ArrayType(VertexQuad, 6);
 
 const PlaneDivisions = 10;
 
-const PlaneMesh = new memory.ArrayOf(VertexQuad, PlaneDivisions * PlaneDivisions);
+const PlaneMesh = new memory.ArrayType(VertexQuad, PlaneDivisions * PlaneDivisions);
 
 const CameraUniform = new memory.Struct({
   projection: { index: 0, type: memory.Mat4x4F },
