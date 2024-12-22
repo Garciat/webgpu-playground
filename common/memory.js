@@ -214,21 +214,22 @@ export class ArrayType {
  */
 
 /**
- * @typedef {{[name: string]: StructFieldDescriptor<any, any>}} StructDescriptor
+ * @template S
+ * @typedef {{[Name in keyof S]: StructFieldDescriptor<any, IType<any>>}} StructDescriptor
  */
 
 /**
- * @template {StructDescriptor} S
+ * @template {StructDescriptor<S>} S
  * @typedef {{[Name in keyof S]: StructField<S, Name, S[Name]>}} StructFieldsOf
  */
 
 /**
- * @template {StructDescriptor} S
+ * @template {StructDescriptor<S>} S
  * @implements {IType<any[]>}
  */
 export class Struct {
   /**
-   * @type {Array<StructField<S, keyof S, any>>} fields
+   * @type {Array<StructField<S, keyof S, StructFieldDescriptor<any, IType<any>>>>} fields
    */
   #fields;
 
@@ -252,14 +253,23 @@ export class Struct {
     this.#fieldsByName = /** @type {StructFieldsOf<S>} */ ({});
 
     for (const name of /** @type {(keyof S)[]} */ (Object.keys(descriptor))) {
+      /**
+       * @type {StructFieldDescriptor<any, IType<any>>}
+       */
       const fieldDescriptor = descriptor[name];
+
+      // Align the offset
+      offset = nextMultipleOf(offset, fieldDescriptor.type.alignment);
+
       const field = new StructField(this, fieldDescriptor, name, offset);
-      offset += field.byteSize; // TODO: alignment?
+
+      offset += field.byteSize;
+
       this.#fields[fieldDescriptor.index] = field;
       this.#fieldsByName[name] = field;
     }
 
-    this.#size = offset;
+    this.#size = nextMultipleOf(offset, this.alignment);
   }
 
   /**
@@ -294,7 +304,7 @@ export class Struct {
    * @returns {number}
    */
   get alignment() {
-    return 4; // TODO: alignment?
+    return 4;
   }
 
   /**
@@ -404,7 +414,6 @@ export class Struct {
    * @returns {ArrayBufferView}
    */
   view(buffer, offset = 0, length = 1) {
-    // TODO: ok to default to Float32?
     return Float32.view(buffer, offset, this.#size * length / Float32.byteSize);
   }
 
@@ -435,7 +444,7 @@ export class Struct {
 }
 
 /**
- * @template {StructDescriptor} S
+ * @template {StructDescriptor<S>} S
  * @template {keyof S} Key
  * @template {StructFieldDescriptor<any, any>} F
  */
@@ -1799,3 +1808,15 @@ export const Vec4F = new Vec4(Float32);
 export const Mat2x2F = new Mat2x2(Float32);
 export const Mat3x3F = new Mat3x3(Float32);
 export const Mat4x4F = new Mat4x4(Float32);
+
+// Private helpers
+
+/**
+ * @param {number} value
+ * @param {number} multiple
+ * @returns {number}
+ */
+function nextMultipleOf(value, multiple) {
+  const extra = value % multiple;
+  return extra ? value + multiple - extra : value;
+}
