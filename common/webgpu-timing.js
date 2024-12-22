@@ -150,12 +150,44 @@ gpu: ${isNaN(timingValues.gpu) ? 'N/A' : `${timingValues.gpu.toFixed(1)}µs`}
   }
 }
 
-export class GPUTimingAdapter {
-  /**
-   * @type {boolean}
-   */
-  #canTimestamp;
+/**
+ * @typedef {object} GPUTiming
+ * @property {() => object} getPassDescriptorMixin
+ * @property {(encoder: GPUCommandEncoder) => void} trackPassEnd
+ * @property {() => Promise<number | undefined>} getResult
+ */
 
+/**
+ * @param {GPUDevice} device
+ * @returns {GPUTiming}
+ */
+export function createGPUTimingAdapter(device) {
+  if (device.features.has('timestamp-query')) {
+    return new GPUTimingAdapter(device);
+  } else {
+    return new GPUTimingNoop();
+  }
+}
+
+/**
+ * @implements {GPUTiming}
+ */
+class GPUTimingNoop {
+  getPassDescriptorMixin() {
+    return {};
+  }
+
+  trackPassEnd() {}
+
+  async getResult() {
+    return NaN;
+  }
+}
+
+/**
+ * @implements {GPUTiming}
+ */
+class GPUTimingAdapter {
   /**
    * @type {GPUQuerySet}
    */
@@ -175,12 +207,6 @@ export class GPUTimingAdapter {
    * @param {GPUDevice} device
    */
   constructor(device) {
-    this.#canTimestamp = device.features.has('timestamp-query');
-
-    if (!this.#canTimestamp) {
-      throw new Error('Timestamp queries are not supported'); // TODO: typing
-    }
-
     this.#querySet = device.createQuerySet({
       type: 'timestamp',
       count: 2, // begin and end
@@ -198,27 +224,19 @@ export class GPUTimingAdapter {
   }
 
   getPassDescriptorMixin() {
-    if (this.#canTimestamp) {
-      return {
-        timestampWrites: {
-          querySet: this.#querySet,
-          beginningOfPassWriteIndex: 0,
-          endOfPassWriteIndex: 1,
-        },
-      };
-    } else {
-      return {};
-    }
+    return {
+      timestampWrites: {
+        querySet: this.#querySet,
+        beginningOfPassWriteIndex: 0,
+        endOfPassWriteIndex: 1,
+      },
+    };
   }
 
   /**
    * @param {GPUCommandEncoder} encoder
    */
   trackPassEnd(encoder) {
-    if (!this.#canTimestamp) {
-      return;
-    }
-
     encoder.resolveQuerySet(this.#querySet, 0, this.#querySet.count, this.#resolveBuffer, 0);
 
     if (this.#resultBuffer.mapState === 'unmapped') {
@@ -228,9 +246,6 @@ export class GPUTimingAdapter {
   }
 
   async getResult() {
-    if (!this.#canTimestamp) {
-      return NaN;
-    }
     if (this.#resultBuffer.mapState === 'unmapped') {
       // if unmapped, it is available for mapping & reading
       const resultBuffer = this.#resultBuffer;

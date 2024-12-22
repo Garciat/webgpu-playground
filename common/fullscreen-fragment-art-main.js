@@ -1,8 +1,8 @@
 import {
   RollingAverage,
   TimingManager,
-  GPUTimingAdapter,
   TimingValuesDisplay,
+  createGPUTimingAdapter,
 } from '../common/webgpu-timing.js';
 
 import { Screen } from '../common/display.js';
@@ -25,7 +25,7 @@ export async function main({fragmentCode}) {
     device,
     canvasTextureFormat,
     fragmentCode,
-    gpuTiming: new GPUTimingAdapter(device),
+    gpuTiming: createGPUTimingAdapter(device),
   });
 
   const timing = new TimingManager(

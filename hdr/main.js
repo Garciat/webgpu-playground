@@ -9,8 +9,8 @@ import { download } from '../common/utils.js';
 import {
   RollingAverage,
   TimingManager,
-  GPUTimingAdapter,
   TimingValuesDisplay,
+  createGPUTimingAdapter,
 } from '../common/webgpu-timing.js';
 
 import { Screen } from '../common/display.js';
@@ -202,7 +202,7 @@ async function main() {
     optionalFeatures: ['timestamp-query'],
   });
 
-  const gpuTimingAdapter = new GPUTimingAdapter(device);
+  const gpuTimingAdapter = createGPUTimingAdapter(device);
 
   const cubeVertexBuffer = device.createBuffer({
     size: CubeMeshData.byteLength,

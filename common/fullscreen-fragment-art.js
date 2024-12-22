@@ -21,7 +21,7 @@ export class FullscreenFragmentArt {
    */
   #device;
   /**
-   * @type {import('./webgpu-timing.js').GPUTimingAdapter}
+   * @type {import('./webgpu-timing.js').GPUTiming}
    */
   #gpuTiming;
 
@@ -66,7 +66,7 @@ export class FullscreenFragmentArt {
    *  device: GPUDevice,
    *  canvasTextureFormat: GPUTextureFormat,
    *  fragmentCode: string,
-   *  gpuTiming: import('./webgpu-timing.js').GPUTimingAdapter,
+   *  gpuTiming: import('./webgpu-timing.js').GPUTiming,
    * }} _
    */
   constructor({
