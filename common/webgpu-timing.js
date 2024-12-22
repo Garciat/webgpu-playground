@@ -1,24 +1,54 @@
+/// <reference path="../vendored/webgpu-types.d.ts" />
+
 import { Styles } from './display.js';
 
 // Source: https://webgpufundamentals.org/webgpu/lessons/webgpu-timing.html
 
 export class RollingAverage {
+  /**
+   * @type {number}
+   */
   #total = 0;
+
+  /**
+   * @type {number[]}
+   */
   #samples = [];
+
+  /**
+   * @type {number}
+   */
   #cursor = 0;
+
+  /**
+   * @type {number}
+   */
   #numSamples;
+
   constructor(numSamples = 100) {
     this.#numSamples = numSamples;
   }
+
+  /**
+   * @param {number} v
+   */
   addSample(v) {
     this.#total += v - (this.#samples[this.#cursor] || 0);
     this.#samples[this.#cursor] = v;
     this.#cursor = (this.#cursor + 1) % this.#numSamples;
   }
+
   get() {
     return this.#total / this.#samples.length;
   }
 }
+
+/**
+ * @typedef {object} TimingValues
+ * @property {number} fps
+ * @property {number} js
+ * @property {number} gpu
+ */
 
 export class TimingManager {
   #fps;
@@ -29,6 +59,11 @@ export class TimingManager {
   #currentFrameTimestamp = 0;
   #frameStartTimestamp = 0;
 
+  /**
+   * @param {RollingAverage} fpsSummary
+   * @param {RollingAverage} jsSummary
+   * @param {RollingAverage} gpuSummary
+   */
   constructor(
     fpsSummary,
     jsSummary,
@@ -39,11 +74,18 @@ export class TimingManager {
     this.#gpu = gpuSummary;
   }
 
+  /**
+   * @param {DOMHighResTimeStamp} timestamp
+   */
   beginFrame(timestamp) {
     this.#currentFrameTimestamp = timestamp;
     this.#frameStartTimestamp = performance.now();
   }
 
+  /**
+   * @param {Promise<number | undefined>} gpuTimePromise
+   * @returns {TimingValues}
+   */
   endFrame(gpuTimePromise) {
     const frameEndTimestamp = performance.now();
     const jsTime = frameEndTimestamp - this.#frameStartTimestamp;
@@ -81,6 +123,9 @@ export class TimingValuesDisplay {
 
   #element;
 
+  /**
+   * @param {HTMLElement} parent
+   */
   constructor(parent) {
     this.#element = document.createElement('pre');
     Styles.set(this.#element, this.#style);
@@ -93,6 +138,9 @@ export class TimingValuesDisplay {
     }
   }
 
+  /**
+   * @param {TimingValues} timingValues
+   */
   display(timingValues) {
     this.#element.textContent = `\
 fps: ${timingValues.fps.toFixed(1)}
@@ -102,23 +150,35 @@ gpu: ${isNaN(timingValues.gpu) ? 'N/A' : `${timingValues.gpu.toFixed(1)}µs`}
   }
 }
 
-function assert(cond, msg = '') {
-  if (!cond) {
-    throw new Error(msg);
-  }
-}
-
 export class GPUTimingAdapter {
+  /**
+   * @type {boolean}
+   */
   #canTimestamp;
+
+  /**
+   * @type {GPUQuerySet}
+   */
   #querySet;
+
+  /**
+   * @type {GPUBuffer}
+   */
   #resolveBuffer;
+
+  /**
+   * @type {GPUBuffer}
+   */
   #resultBuffer;
 
+  /**
+   * @param {GPUDevice} device
+   */
   constructor(device) {
     this.#canTimestamp = device.features.has('timestamp-query');
 
     if (!this.#canTimestamp) {
-      return;
+      throw new Error('Timestamp queries are not supported'); // TODO: typing
     }
 
     this.#querySet = device.createQuerySet({
@@ -151,6 +211,9 @@ export class GPUTimingAdapter {
     }
   }
 
+  /**
+   * @param {GPUCommandEncoder} encoder
+   */
   trackPassEnd(encoder) {
     if (!this.#canTimestamp) {
       return;

@@ -9,6 +9,9 @@ import { Screen } from '../common/display.js';
 
 import { FullscreenFragmentArt } from '../common/fullscreen-fragment-art.js';
 
+/**
+ * @param {{fragmentCode: string}} _
+ */
 export async function main({fragmentCode}) {
   const pixelRatio = window.devicePixelRatio;
   const {canvas, displayW, displayH} = Screen.setup(document.body, pixelRatio);
@@ -33,6 +36,9 @@ export async function main({fragmentCode}) {
 
   const timingDisplay = new TimingValuesDisplay(document.body);
 
+  /**
+   * @param {DOMHighResTimeStamp} timestamp
+   */
   function frame(timestamp) {
     timing.beginFrame(timestamp);
 

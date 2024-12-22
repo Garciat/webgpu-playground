@@ -173,7 +173,7 @@ const PlaneInstanceData = memory.allocate(Instance, 1);
     const scale = vec3.fromValues(20, 20, 20);
     const rotation = vec3.fromValues(-Math.PI / 2, 0, 0);
 
-    Instance.fields.tint.write(view, 0, [1, 1, 1, 1]);
+    Instance.fields.tint.writeAt(view, 0, [1, 1, 1, 1]);
 
     const model = Instance.fields.model.view(PlaneInstanceData, 0);
     mat4.identity(model);
@@ -237,6 +237,9 @@ async function main() {
   const LocVertex = 0;
   const LocInstance = 4;
 
+  /**
+   * @type {GPUVertexBufferLayout[]}
+   */
   const vertexBufferLayout = [
     {
       attributes: [
@@ -323,6 +326,9 @@ async function main() {
     code: shaders
   });
 
+  /**
+   * @type {GPURenderPipelineDescriptor}
+   */
   const pipelineDescriptor = {
     vertex: {
       module: shaderModule,
@@ -487,6 +493,9 @@ async function main() {
 
   mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, cameraUniform.projection);
 
+  /**
+   * @param {number} time
+   */
   function updateCamera(time) {
     const view = cameraUniform.view;
 
@@ -498,10 +507,16 @@ async function main() {
     mat4.rotateY(view, time, view);
   }
 
+  /**
+   * @param {number} time
+   */
   function updateUniforms(time) {
-    timeUniformData[0] = time;
+    memory.Float32.writeAt(new DataView(timeUniformData), 0, time);
   }
 
+  /**
+   * @param {number} time
+   */
   function updateInstances(time) {
     for (let i = 0; i < Instance.count(CubeInstanceData); i++) {
       const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(CubeInstanceData, i);
@@ -539,6 +554,9 @@ async function main() {
 
   const timingDisplay = new TimingValuesDisplay(document.body);
 
+  /**
+   * @param {DOMHighResTimeStamp} timestamp
+   */
   function frame(timestamp) {
     timing.beginFrame(timestamp);
 
@@ -557,6 +575,9 @@ async function main() {
 
     const commandEncoder = device.createCommandEncoder();
 
+    /**
+     * @type {GPURenderPassDescriptor}
+     */
     const renderPassDescriptor = {
       colorAttachments: [
         {

@@ -1,14 +1,30 @@
+/// <reference path="../vendored/webgpu-types.d.ts" />
+
 export class Styles {
+  /**
+   * @param {HTMLElement} element
+   * @param {{[key: string]: string|number|CSSUnitValue}} style
+   */
   static set(element, style) {
     for (let key of Object.keys(style)) {
-      element.style.setProperty(key, style[key]);
+      element.style.setProperty(key, style[key].toString());
     }
   }
 }
 
 export class Screen {
+  /**
+   * @param {HTMLElement} body
+   * @param {number} [pixelRatio=1]
+   * @returns
+   */
   static setup(body, pixelRatio=1) {
-    Styles.set(body.parentElement, {
+    const html = body.parentElement;
+    if (!html) {
+      throw Error('No HTML element found');
+    }
+
+    Styles.set(html, {
       width: CSS.percent(100),
       height: CSS.percent(100),
     });
@@ -40,6 +56,18 @@ export class Screen {
     return {canvas, displayW, displayH};
   }
 
+  /**
+   *
+   * @param {GPU} navigatorGPU
+   * @param {HTMLCanvasElement} canvas
+   * @param {{requiredFeatures?: GPUFeatureName[], optionalFeatures?: GPUFeatureName[]}} _
+   * @returns {Promise<{
+   *  adapter: GPUAdapter,
+   *  device: GPUDevice,
+   *  context: GPUCanvasContext,
+   *  canvasTextureFormat: GPUTextureFormat
+   * }>}
+   */
   static async gpu(navigatorGPU, canvas, {requiredFeatures=[], optionalFeatures=[]}) {
     if (!navigatorGPU) {
       throw Error('WebGPU not supported');
@@ -61,6 +89,10 @@ export class Screen {
     }
 
     const context = canvas.getContext('webgpu');
+    if (!context) {
+      throw Error('Couldn\'t get WebGPU context.');
+    }
+
     context.configure({
       device: device,
       format: 'rgba16float',
@@ -72,6 +104,9 @@ export class Screen {
     });
 
     const conf = context.getConfiguration();
+    if (!conf) {
+      throw Error('Couldn\'t get WebGPU context configuration.');
+    }
 
     return {
       adapter,

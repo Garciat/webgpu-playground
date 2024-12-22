@@ -1,3 +1,5 @@
+/// <reference path="../vendored/webgpu-types.d.ts" />
+
 const StaticQuadVertWGSL = `
 @vertex
 fn main(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
@@ -10,21 +12,63 @@ fn main(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
 `;
 
 export class FullscreenFragmentArt {
+  /**
+   * @type {HTMLCanvasElement}
+   */
   #canvas;
+  /**
+   * @type {GPUDevice}
+   */
   #device;
+  /**
+   * @type {import('./webgpu-timing.js').GPUTimingAdapter}
+   */
   #gpuTiming;
 
+  /**
+   * @type {number}
+   */
   #pixelRatio;
 
+  /**
+   * @type {GPURenderPipeline}
+   */
   #pipeline;
 
+  /**
+   * @type {GPUBuffer}
+   */
   #uniformsBuffer;
+  /**
+   * @type {GPUBindGroup}
+   */
   #uniformsBindGroup;
+  /**
+   * @type {Float32Array}
+   */
   #uniformsData;
+  /**
+   * @type {Float32Array}
+   */
   #uniformsData_time;
+  /**
+   * @type {Float32Array}
+   */
   #uniformsData_resolution;
+  /**
+   * @type {Float32Array}
+   */
   #uniformsData_mouse;
 
+  /**
+   * @param {{
+   *  canvas: HTMLCanvasElement,
+   *  device: GPUDevice,
+   *  canvasTextureFormat: GPUTextureFormat,
+   *  fragmentCode: string,
+   *  gpuTiming: import('./webgpu-timing.js').GPUTimingAdapter,
+   * }} _
+   */
   constructor({
     canvas,
     device,
@@ -96,6 +140,10 @@ export class FullscreenFragmentArt {
     this.#uniformsData_resolution[1] = this.#canvas.height;
   }
 
+  /**
+   * @param {number} x
+   * @param {number} y
+   */
   #setMousePositionClient(x, y) {
     this.#uniformsData_mouse[0] = x * this.#pixelRatio;
     this.#uniformsData_mouse[1] = y * this.#pixelRatio;
@@ -110,6 +158,11 @@ export class FullscreenFragmentArt {
     });
   }
 
+  /**
+   * @param {DOMHighResTimeStamp} timestamp
+   * @param {GPUCommandEncoder} commandEncoder
+   * @param {GPUTextureView} textureView
+   */
   render(timestamp, commandEncoder, textureView) {
     const time = timestamp / 1000;
     this.#uniformsData_time[0] = time;
