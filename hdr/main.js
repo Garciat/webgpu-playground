@@ -15,193 +15,224 @@ import {
 
 import { Screen } from '../common/display.js';
 
-function makeVertex([x, y, z] = [0, 0, 0], [r, g, b, a] = [1, 1, 1, 1], [u, v] = [0, 0], [nx, ny, nz] = [0, 0, -1]) {
-  return [
-    ...[x, y, z ?? 0, 1], // position
-    ...[r, g, b, a], // color
-    ...[nx, ny, nz], // normal
-    ...[u, v], // uv
-  ];
-}
+import * as memory from '../common/memory.js';
 
-const vertexDataSize = 4 * makeVertex().length;
+const Vertex = new memory.Struct([
+  { name: 'position', type: memory.Vec4F },
+  { name: 'color', type: memory.Vec4F },
+  { name: 'normal', type: memory.Vec3F },
+  { name: 'uv', type: memory.Vec2F },
+]);
 
-function makeInstance([x, y, z] = [0, 0, 0], [sx, sy, sz] = [1, 1, 1], [rx, ry, rz] = [0, 0, 0], tint = [1, 1, 1, 1]) {
-  const model = mat4.identity();
-  mat4.translate(model, vec3.fromValues(x, y, z), model);
-  mat4.scale(model, vec3.fromValues(sx, sy, sz), model);
-  mat4.rotateX(model, rx, model);
-  mat4.rotateY(model, ry, model);
-  mat4.rotateZ(model, rz, model);
+const Instance = new memory.Struct([
+  { name: 'tint', type: memory.Vec4F },
+  { name: 'model', type: memory.Mat4x4F },
+  { name: 'mvMatrix', type: memory.Mat4x4F },
+  { name: 'normalMatrix', type: memory.Mat4x4F },
+]);
 
-  const mvMatrix = mat4.create();
-  const normalMatrix = mat4.create();
+const Light = new memory.Struct([
+  { name: 'position', type: memory.Vec4F },
+  { name: 'color', type: memory.Vec4F },
+]);
 
-  return [
-    ...tint,
-    ...model,
-    ...mvMatrix,
-    ...normalMatrix,
-  ];
-}
+const VertexQuad = new memory.ArrayOf(Vertex, 6);
 
-const instanceDataSize = 4 * makeInstance().length;
+const CubeMesh = new memory.ArrayOf(VertexQuad, 6);
 
-function makeCube() {
-  return [
+const PlaneDivisions = 10;
+
+const PlaneMesh = new memory.ArrayOf(VertexQuad, PlaneDivisions * PlaneDivisions);
+
+const CameraUniform = new memory.Struct([
+  { name: 'projection', type: memory.Mat4x4F },
+  { name: 'view', type: memory.Mat4x4F },
+]);
+
+const CubeMeshData = memory.allocate(CubeMesh);
+{
+  const view = new DataView(CubeMeshData);
+  CubeMesh.write(view, [
     // Front face
-    ...makeVertex([-1, -1, 1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([1, -1, 1], [0, 1, 0, 1], [1, 0], [0, 0, 1]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
-    ...makeVertex([-1, 1, 1], [1, 1, 1, 1], [0, 1], [0, 0, 1]),
-    ...makeVertex([-1, -1, 1], [1, 0, 0, 1], [0, 0], [0, 0, 1]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 0, 1]),
+    [
+      [[-1, -1, 1, 1], [1, 0, 0, 1], [0, 0, 1], [0, 0]],
+      [[1, -1, 1, 1], [0, 1, 0, 1], [0, 0, 1], [1, 0]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [0, 0, 1], [1, 1]],
+      [[-1, 1, 1, 1], [1, 1, 1, 1], [0, 0, 1], [0, 1]],
+      [[-1, -1, 1, 1], [1, 0, 0, 1], [0, 0, 1], [0, 0]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [0, 0, 1], [1, 1]],
+    ],
     // Back face
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([-1, 1, -1], [0, 1, 0, 1], [0, 1], [0, 0, -1]),
-    ...makeVertex([1, 1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
-    ...makeVertex([1, -1, -1], [1, 1, 1, 1], [1, 0], [0, 0, -1]),
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, 0, -1]),
-    ...makeVertex([1, 1, -1], [0, 0, 1, 1], [1, 1], [0, 0, -1]),
+    [
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [0, 0, -1], [0, 0]],
+      [[-1, 1, -1, 1], [0, 1, 0, 1], [0, 0, -1], [0, 1]],
+      [[1, 1, -1, 1], [0, 0, 1, 1], [0, 0, -1], [1, 1]],
+      [[1, -1, -1, 1], [1, 1, 1, 1], [0, 0, -1], [1, 0]],
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [0, 0, -1], [0, 0]],
+      [[1, 1, -1, 1], [0, 0, 1, 1], [0, 0, -1], [1, 1]],
+    ],
     // Top face
-    ...makeVertex([-1, 1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
-    ...makeVertex([-1, 1, 1], [0, 1, 0, 1], [0, 1], [0, 1, 0]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
-    ...makeVertex([1, 1, -1], [1, 1, 1, 1], [1, 0], [0, 1, 0]),
-    ...makeVertex([-1, 1, -1], [1, 0, 0, 1], [0, 0], [0, 1, 0]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [0, 1, 0]),
+    [
+      [[-1, 1, -1, 1], [1, 0, 0, 1], [0, 1, 0], [0, 0]],
+      [[-1, 1, 1, 1], [0, 1, 0, 1], [0, 1, 0], [0, 1]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [0, 1, 0], [1, 1]],
+      [[1, 1, -1, 1], [1, 1, 1, 1], [0, 1, 0], [1, 0]],
+      [[-1, 1, -1, 1], [1, 0, 0, 1], [0, 1, 0], [0, 0]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [0, 1, 0], [1, 1]],
+    ],
     // Bottom face
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
-    ...makeVertex([1, -1, -1], [0, 1, 0, 1], [1, 0], [0, -1, 0]),
-    ...makeVertex([1, -1, 1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
-    ...makeVertex([-1, -1, 1], [1, 1, 1, 1], [0, 1], [0, -1, 0]),
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [0, -1, 0]),
-    ...makeVertex([1, -1, 1], [0, 0, 1, 1], [1, 1], [0, -1, 0]),
+    [
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [0, -1, 0], [0, 0]],
+      [[1, -1, -1, 1], [0, 1, 0, 1], [0, -1, 0], [1, 0]],
+      [[1, -1, 1, 1], [0, 0, 1, 1], [0, -1, 0], [1, 1]],
+      [[-1, -1, 1, 1], [1, 1, 1, 1], [0, -1, 0], [0, 1]],
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [0, -1, 0], [0, 0]],
+      [[1, -1, 1, 1], [0, 0, 1, 1], [0, -1, 0], [1, 1]],
+    ],
     // Right face
-    ...makeVertex([1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
-    ...makeVertex([1, 1, -1], [0, 1, 0, 1], [0, 1], [1, 0, 0]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
-    ...makeVertex([1, -1, 1], [1, 1, 1, 1], [1, 0], [1, 0, 0]),
-    ...makeVertex([1, -1, -1], [1, 0, 0, 1], [0, 0], [1, 0, 0]),
-    ...makeVertex([1, 1, 1], [0, 0, 1, 1], [1, 1], [1, 0, 0]),
+    [
+      [[1, -1, -1, 1], [1, 0, 0, 1], [1, 0, 0], [0, 0]],
+      [[1, 1, -1, 1], [0, 1, 0, 1], [1, 0, 0], [0, 1]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [1, 0, 0], [1, 1]],
+      [[1, -1, 1, 1], [1, 1, 1, 1], [1, 0, 0], [1, 0]],
+      [[1, -1, -1, 1], [1, 0, 0, 1], [1, 0, 0], [0, 0]],
+      [[1, 1, 1, 1], [0, 0, 1, 1], [1, 0, 0], [1, 1]],
+    ],
     // Left face
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
-    ...makeVertex([-1, -1, 1], [0, 1, 0, 1], [1, 0], [-1, 0, 0]),
-    ...makeVertex([-1, 1, 1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
-    ...makeVertex([-1, 1, -1], [1, 1, 1, 1], [0, 1], [-1, 0, 0]),
-    ...makeVertex([-1, -1, -1], [1, 0, 0, 1], [0, 0], [-1, 0, 0]),
-    ...makeVertex([-1, 1, 1], [0, 0, 1, 1], [1, 1], [-1, 0, 0]),
-  ];
+    [
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [-1, 0, 0], [0, 0]],
+      [[-1, -1, 1, 1], [0, 1, 0, 1], [-1, 0, 0], [1, 0]],
+      [[-1, 1, 1, 1], [0, 0, 1, 1], [-1, 0, 0], [1, 1]],
+      [[-1, 1, -1, 1], [1, 1, 1, 1], [-1, 0, 0], [0, 1]],
+      [[-1, -1, -1, 1], [1, 0, 0, 1], [-1, 0, 0], [0, 0]],
+      [[-1, 1, 1, 1], [0, 0, 1, 1], [-1, 0, 0], [1, 1]],
+    ],
+  ]);
 }
 
-function makePlane(divisions) {
-  const vertices = [];
-  const step = 1 / divisions;
-  for (let x = 0; x < divisions; x++) {
-    for (let y = 0; y < divisions; y++) {
-      const x0 = x * step - 0.5;
-      const x1 = (x + 1) * step - 0.5;
-      const y0 = y * step - 0.5;
-      const y1 = (y + 1) * step - 0.5;
+const CubeInstanceData = memory.allocate(Instance, 2);
+{
+  const view = new DataView(CubeInstanceData);
 
-      vertices.push(
-        ...makeVertex([x0, y0, 0], [1, 1, 1, 1], [0, 0], [0, 0, 1]),
-        ...makeVertex([x1, y0, 0], [1, 1, 1, 1], [1, 0], [0, 0, 1]),
-        ...makeVertex([x1, y1, 0], [1, 1, 1, 1], [1, 1], [0, 0, 1]),
-        ...makeVertex([x0, y1, 0], [1, 1, 1, 1], [0, 1], [0, 0, 1]),
-        ...makeVertex([x0, y0, 0], [1, 1, 1, 1], [0, 0], [0, 0, 1]),
-        ...makeVertex([x1, y1, 0], [1, 1, 1, 1], [1, 1], [0, 0, 1]),
-      );
+  {
+    // Cat
+    const position = vec3.fromValues(0, 0, 0);
+    const scale = vec3.fromValues(0.5, 0.5, 0.5);
+
+    Instance.fields.tint.write(view, 0, [1, 1, 1, 1]);
+
+    const model = Instance.fields.model.view(CubeInstanceData, 0);
+    mat4.identity(model);
+    mat4.translate(model, position, model);
+    mat4.scale(model, scale, model);
+  }
+
+  {
+    // Light
+    const position = vec3.fromValues(0, 0, -3);
+    const scale = vec3.fromValues(0.05, 0.05, 0.05);
+
+    Instance.fields.tint.write(view, Instance.byteSize, [1, 1, 1, 1]);
+
+    const model = Instance.fields.model.view(CubeInstanceData, Instance.byteSize);
+    mat4.identity(model);
+    mat4.translate(model, position, model);
+    mat4.scale(model, scale, model);
+  }
+}
+
+const PlaneMeshData = memory.allocate(PlaneMesh);
+{
+  const view = new DataView(PlaneMeshData);
+  let i = 0;
+  for (let x = 0; x < PlaneDivisions; x++) {
+    for (let y = 0; y < PlaneDivisions; y++) {
+      const x0 = x / PlaneDivisions - 0.5;
+      const x1 = (x + 1) / PlaneDivisions - 0.5;
+      const y0 = y / PlaneDivisions - 0.5;
+      const y1 = (y + 1) / PlaneDivisions - 0.5;
+
+      PlaneMesh.set(view, i++, [
+        [[x0, y0, 0, 1], [1, 1, 1, 1], [0, 0, 1], [0, 0]],
+        [[x1, y0, 0, 1], [1, 1, 1, 1], [0, 0, 1], [1, 0]],
+        [[x1, y1, 0, 1], [1, 1, 1, 1], [0, 0, 1], [1, 1]],
+        [[x0, y1, 0, 1], [1, 1, 1, 1], [0, 0, 1], [0, 1]],
+        [[x0, y0, 0, 1], [1, 1, 1, 1], [0, 0, 1], [0, 0]],
+        [[x1, y1, 0, 1], [1, 1, 1, 1], [0, 0, 1], [1, 1]],
+      ]);
     }
   }
-  return vertices;
 }
 
-// Vertex data for triangle
-const cubeVertexData = new Float32Array([
-  ...makeCube(),
-]);
-const cubeVertexCount = cubeVertexData.byteLength / vertexDataSize;
+const PlaneInstanceData = memory.allocate(Instance, 1);
+{
+  const view = new DataView(PlaneInstanceData);
+  {
+    // Ground
+    const position = vec3.fromValues(0, -2, 0);
+    const scale = vec3.fromValues(20, 20, 20);
+    const rotation = vec3.fromValues(-Math.PI / 2, 0, 0);
 
-const cubeInstanceData = new Float32Array([
-  ...makeInstance([0, 0, 0], [0.5, 0.5, 0.5], [0, 0, 0], [1, 1, 1, 1]),
-  ...makeInstance([0, 0, -3], [0.05, 0.05, 0.05], [0, 0, 0], [1, 1, 1, 1]), // light
-]);
-const cubeInstances = cubeInstanceData.byteLength / instanceDataSize;
+    Instance.fields.tint.write(view, 0, [1, 1, 1, 1]);
 
-const planeVertexData = new Float32Array([
-  ...makePlane(10),
-]);
-const planeVertexCount = planeVertexData.byteLength / vertexDataSize;
-
-const planeInstanceData = new Float32Array([
-  ...makeInstance([0, -2, 0], [20, 20, 20], [-Math.PI / 2, 0, 0], [1, 1, 1, 1]),
-]);
-const planeInstances = planeInstanceData.byteLength / instanceDataSize;
-
-function getInstanceParts(data, i) {
-  const instance = data.subarray(i * instanceDataSize / 4, (i + 1) * instanceDataSize / 4);
-  const tint = instance.subarray(0, 4);
-  const model = instance.subarray(4, 20);
-  const mvMatrix = instance.subarray(20, 36);
-  const normalMatrix = instance.subarray(36, 52);
-
-  return { tint, model, mvMatrix, normalMatrix };
+    const model = Instance.fields.model.view(PlaneInstanceData, 0);
+    mat4.identity(model);
+    mat4.translate(model, position, model);
+    mat4.scale(model, scale, model);
+    mat4.rotateX(model, rotation[0], model);
+    mat4.rotateY(model, rotation[1], model);
+    mat4.rotateZ(model, rotation[2], model);
+  }
 }
 
-function makeLight([x, y, z] = [0, 0, 0], [r, g, b] = [1, 1, 1]) {
-  // using vec3 for either caused some weird alignment issue that I couldn't figure out
-  // so using vec4 sizes for position and color
-  return [
-    x, y, z, 1,
-    r, g, b, 1,
-  ];
-}
+const LightData = memory.allocate(Light, 1);
+{
+  const view = new DataView(LightData);
 
-const lightSize = 4 * makeLight().length;
-const lights = new Float32Array([
-  ...makeLight([0, 0, -3], [10, 10, 10]),
-]);
-const lightCount = lights.byteLength / lightSize;
+  Light.writeObjectAt(view, 0, {
+    position: [0, 0, -3, 1],
+    color: [10, 10, 10, 1],
+  });
+}
 
 async function main() {
-  const {canvas, displayW, displayH} = Screen.setup(document.body, window.devicePixelRatio);
+  const { canvas, displayW, displayH } = Screen.setup(document.body, window.devicePixelRatio);
 
-  const {adapter, device, context, canvasTextureFormat} = await Screen.gpu(navigator.gpu, canvas, {
+  const { adapter, device, context, canvasTextureFormat } = await Screen.gpu(navigator.gpu, canvas, {
     optionalFeatures: ['timestamp-query'],
   });
 
   const gpuTimingAdapter = new GPUTimingAdapter(device);
 
   const cubeVertexBuffer = device.createBuffer({
-    size: cubeVertexData.byteLength, // make it big enough to store vertices in
+    size: CubeMeshData.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(cubeVertexBuffer, 0, cubeVertexData);
+  device.queue.writeBuffer(cubeVertexBuffer, 0, CubeMeshData);
 
   const cubeInstanceBuffer = device.createBuffer({
-    size: cubeInstanceData.byteLength,
+    size: CubeInstanceData.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(cubeInstanceBuffer, 0, cubeInstanceData);
+  device.queue.writeBuffer(cubeInstanceBuffer, 0, CubeInstanceData);
 
   const planeVertexBuffer = device.createBuffer({
-    size: planeVertexData.byteLength,
+    size: PlaneMeshData.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(planeVertexBuffer, 0, planeVertexData);
+  device.queue.writeBuffer(planeVertexBuffer, 0, PlaneMeshData);
 
   const planeInstanceBuffer = device.createBuffer({
-    size: planeInstanceData.byteLength,
+    size: PlaneInstanceData.byteLength,
     usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(planeInstanceBuffer, 0, planeInstanceData);
+  device.queue.writeBuffer(planeInstanceBuffer, 0, PlaneInstanceData);
 
   const lightBuffer = device.createBuffer({
-    size: lights.byteLength,
+    size: LightData.byteLength,
     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
   });
-  device.queue.writeBuffer(lightBuffer, 0, lights);
+  device.queue.writeBuffer(lightBuffer, 0, LightData);
 
   const LocVertex = 0;
   const LocInstance = 4;
@@ -211,77 +242,77 @@ async function main() {
       attributes: [
         {
           shaderLocation: LocVertex + 0, // position
-          offset: 0,
+          offset: Vertex.fields.position.offset,
           format: 'float32x4'
         },
         {
           shaderLocation: LocVertex + 1, // color
-          offset: 4 * 4,
+          offset: Vertex.fields.color.offset,
           format: 'float32x4'
         },
         {
           shaderLocation: LocVertex + 2, // normal
-          offset: 4 * 8,
+          offset: Vertex.fields.normal.offset,
           format: 'float32x3'
         },
         {
           shaderLocation: LocVertex + 3, // uv
-          offset: 4 * 11,
+          offset: Vertex.fields.uv.offset,
           format: 'float32x2'
         },
       ],
-      arrayStride: vertexDataSize,
+      arrayStride: Vertex.byteSize,
       stepMode: 'vertex'
     },
     {
       attributes: [
         {
           shaderLocation: LocInstance + 0, // tint
-          offset: 0,
+          offset: Instance.fields.tint.offset,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 1, // mvMatrix0
-          offset: 4 * 16 + 4 * 4,
+          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 0,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 2, // mvMatrix1
-          offset: 4 * 16 + 4 * 8,
+          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 1,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 3, // mvMatrix2
-          offset: 4 * 16 + 4 * 12,
+          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 2,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 4, // mvMatrix3
-          offset: 4 * 16 + 4 * 16,
+          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 3,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 5, // normalMatrix0
-          offset: 4 * 16 + 4 * 20,
+          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 0,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 6, // normalMatrix1
-          offset: 4 * 16 + 4 * 24,
+          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 1,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 7, // normalMatrix2
-          offset: 4 * 16 + 4 * 28,
+          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 2,
           format: 'float32x4',
         },
         {
           shaderLocation: LocInstance + 8, // normalMatrix3
-          offset: 4 * 16 + 4 * 32,
+          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 3,
           format: 'float32x4',
         },
       ],
-      arrayStride: instanceDataSize,
+      arrayStride: Instance.byteSize,
       stepMode: 'instance'
     },
   ];
@@ -330,16 +361,17 @@ async function main() {
   const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
   // Uniforms
-  const timeUniform = new Float32Array(1);
-  const camera = new Float32Array(32);
+  const timeUniformData = memory.allocate(memory.Float32);
+  const cameraUniformData = memory.allocate(CameraUniform);
+  const cameraUniform = CameraUniform.viewObject(cameraUniformData);
 
   const timeBuffer = device.createBuffer({
-    size: timeUniform.byteLength,
+    size: timeUniformData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
   const cameraBuffer = device.createBuffer({
-    size: camera.byteLength,
+    size: cameraUniformData.byteLength,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -453,30 +485,29 @@ async function main() {
 
   const aspect = canvas.width / canvas.height;
 
-  const projectionMatrix = camera.subarray(0, 16);
-  mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, projectionMatrix);
-
-  const viewMatrix = camera.subarray(16, 32);
+  mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, cameraUniform.projection);
 
   function updateCamera(time) {
+    const view = cameraUniform.view;
+
     const pos = vec3.fromValues(0, 0, -5);
 
-    mat4.identity(viewMatrix);
-    mat4.translate(viewMatrix, pos, viewMatrix);
-    mat4.rotateX(viewMatrix, Math.PI / 8, viewMatrix);
-    mat4.rotateY(viewMatrix, time, viewMatrix);
+    mat4.identity(view);
+    mat4.translate(view, pos, view);
+    mat4.rotateX(view, Math.PI / 8, view);
+    mat4.rotateY(view, time, view);
   }
 
   function updateUniforms(time) {
-    timeUniform[0] = time;
+    timeUniformData[0] = time;
   }
 
   function updateInstances(time) {
-    for (let i = 0; i < cubeInstances; i++) {
-      const { tint, model, mvMatrix, normalMatrix } = getInstanceParts(cubeInstanceData, i);
+    for (let i = 0; i < Instance.count(CubeInstanceData); i++) {
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObject(CubeInstanceData, i * Instance.byteSize);
 
       mat4.identity(mvMatrix);
-      mat4.multiply(mvMatrix, viewMatrix, mvMatrix);
+      mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
       mat4.multiply(mvMatrix, model, mvMatrix);
 
       if (i === 0) {
@@ -488,11 +519,11 @@ async function main() {
       mat4.transpose(normalMatrix, normalMatrix);
     }
 
-    for (let i = 0; i < planeInstances; i++) {
-      const { tint, model, mvMatrix, normalMatrix } = getInstanceParts(planeInstanceData, i);
+    for (let i = 0; i < Instance.count(PlaneInstanceData); i++) {
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObject(PlaneInstanceData, i * Instance.byteSize);
 
       mat4.identity(mvMatrix);
-      mat4.multiply(mvMatrix, viewMatrix, mvMatrix);
+      mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
       mat4.multiply(mvMatrix, model, mvMatrix);
 
       mat4.invert(mvMatrix, normalMatrix);
@@ -518,11 +549,11 @@ async function main() {
     updateInstances(time);
 
     // Update uniforms
-    device.queue.writeBuffer(timeBuffer, 0, timeUniform);
-    device.queue.writeBuffer(cameraBuffer, 0, camera);
-    device.queue.writeBuffer(lightBuffer, 0, lights);
-    device.queue.writeBuffer(cubeInstanceBuffer, 0, cubeInstanceData);
-    device.queue.writeBuffer(planeInstanceBuffer, 0, planeInstanceData);
+    device.queue.writeBuffer(timeBuffer, 0, timeUniformData);
+    device.queue.writeBuffer(cameraBuffer, 0, cameraUniformData);
+    device.queue.writeBuffer(lightBuffer, 0, LightData);
+    device.queue.writeBuffer(cubeInstanceBuffer, 0, CubeInstanceData);
+    device.queue.writeBuffer(planeInstanceBuffer, 0, PlaneInstanceData);
 
     const commandEncoder = device.createCommandEncoder();
 
@@ -553,12 +584,12 @@ async function main() {
     passEncoder.setBindGroup(2, cubeTextureBindGroup);
     passEncoder.setVertexBuffer(0, cubeVertexBuffer);
     passEncoder.setVertexBuffer(1, cubeInstanceBuffer);
-    passEncoder.draw(cubeVertexCount, cubeInstances);
+    passEncoder.draw(Vertex.count(CubeMeshData), Instance.count(CubeInstanceData));
 
     passEncoder.setBindGroup(2, grassTextureBindGroup);
     passEncoder.setVertexBuffer(0, planeVertexBuffer);
     passEncoder.setVertexBuffer(1, planeInstanceBuffer);
-    passEncoder.draw(planeVertexCount, planeInstances);
+    passEncoder.draw(Vertex.count(PlaneMeshData), Instance.count(PlaneInstanceData));
 
     passEncoder.end();
     gpuTimingAdapter.trackPassEnd(commandEncoder);
