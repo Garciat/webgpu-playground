@@ -94,7 +94,7 @@ export class ArrayType {
    * @returns {string}
    */
   toString() {
-    return `Array(${this.#type.toString()}, ${this.#length})`;
+    return `Array(${String(this.#type)}, ${this.#length})`;
   }
 
   /**
@@ -276,7 +276,7 @@ export class Struct {
    * @returns {string}
    */
   toString() {
-    return `Struct(${this.#fields.map(field => `${String(field.name)}: ${field.type.toString()}`).join(', ')})`;
+    return `Struct(${this.#fields.map(field => `${String(field.name)}: ${String(field.type)}`).join(', ')})`;
   }
 
   /**
@@ -590,7 +590,7 @@ export class Mat2x2 {
   }
 
   toString() {
-    return `Mat2x2(${this.#type.toString()})`;
+    return `Mat2x2(${String(this.#type)})`;
   }
 
   get type() {
@@ -732,7 +732,7 @@ export class Mat3x3 {
   }
 
   toString() {
-    return `Mat3x3(${this.#type.toString()})`;
+    return `Mat3x3(${String(this.#type)})`;
   }
 
   get type() {
@@ -886,7 +886,7 @@ export class Mat4x4 {
   }
 
   toString() {
-    return `Mat4x4(${this.#type.toString()})`;
+    return `Mat4x4(${String(this.#type)})`;
   }
 
   get type() {
@@ -1058,7 +1058,7 @@ export class Vec2 {
   }
 
   toString() {
-    return `Vec2(${this.#type.toString()})`;
+    return `Vec2(${String(this.#type)})`;
   }
 
   get type() {
@@ -1197,7 +1197,7 @@ export class Vec3 {
   }
 
   toString() {
-    return `Vec3(${this.#type.toString()})`;
+    return `Vec3(${String(this.#type)})`;
   }
 
   get type() {
@@ -1359,7 +1359,7 @@ export class Vec4 {
   }
 
   toString() {
-    return `Vec4(${this.#type.toString()})`;
+    return `Vec4(${String(this.#type)})`;
   }
 
   get type() {

@@ -7,7 +7,7 @@ export class Styles {
    */
   static set(element, style) {
     for (let key of Object.keys(style)) {
-      element.style.setProperty(key, style[key].toString());
+      element.style.setProperty(key, String(style[key]));
     }
   }
 }
