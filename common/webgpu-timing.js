@@ -112,6 +112,10 @@ export class TimingManager {
 
 export class TimingValuesDisplay {
   #style = {
+    contain: 'strict',
+    width: CSS.em(8),
+    height: CSS.em(3.5),
+    overflow: 'hidden',
     position: 'absolute',
     top: 0,
     left: 0,
@@ -122,6 +126,7 @@ export class TimingValuesDisplay {
   };
 
   #element;
+  #textNode;
 
   /**
    * @param {HTMLElement} parent
@@ -129,8 +134,10 @@ export class TimingValuesDisplay {
   constructor(parent) {
     this.#element = document.createElement('pre');
     Styles.set(this.#element, this.#style);
-
     parent.appendChild(this.#element);
+
+    this.#textNode = document.createTextNode('');
+    this.#element.appendChild(this.#textNode);
 
     // HACK
     if (window.location.hash.includes('timing=no')) {
@@ -142,7 +149,7 @@ export class TimingValuesDisplay {
    * @param {TimingValues} timingValues
    */
   display(timingValues) {
-    this.#element.textContent = `\
+    this.#textNode.nodeValue = `\
 fps: ${timingValues.fps.toFixed(1)}
 js: ${timingValues.js.toFixed(3)}ms
 gpu: ${isNaN(timingValues.gpu) ? 'N/A' : `${timingValues.gpu.toFixed(1)}µs`}
