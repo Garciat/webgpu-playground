@@ -17,6 +17,8 @@ import { Screen } from '../common/display.js';
 
 import * as memory from '../common/memory.js';
 
+import { loadImageTexture, loadImageTextureHDR } from '../common/resources.js';
+
 import {
   Vertex,
   Instance,
@@ -26,6 +28,7 @@ import {
 
 import { CubeMeshData } from './mesh-cube.js';
 import { PlaneMeshData } from './mesh-plane.js';
+import { VertexBufferLayout, getBindGroupLayouts } from './shaders-layout.js';
 
 const CubeInstanceData = memory.allocate(Instance, 2);
 {
@@ -120,111 +123,24 @@ async function main() {
 
   const lightBuffer = createBufferFromData(device, LightData, GPUBufferUsage.STORAGE);
 
-  const LocVertex = 0;
-  const LocInstance = 4;
-
-  /**
-   * @type {GPUVertexBufferLayout[]}
-   */
-  const vertexBufferLayout = [
-    {
-      attributes: [
-        {
-          shaderLocation: LocVertex + 0, // position
-          offset: Vertex.fields.position.offset,
-          format: 'float32x4'
-        },
-        {
-          shaderLocation: LocVertex + 1, // color
-          offset: Vertex.fields.color.offset,
-          format: 'float32x4'
-        },
-        {
-          shaderLocation: LocVertex + 2, // normal
-          offset: Vertex.fields.normal.offset,
-          format: 'float32x3'
-        },
-        {
-          shaderLocation: LocVertex + 3, // uv
-          offset: Vertex.fields.uv.offset,
-          format: 'float32x2'
-        },
-      ],
-      arrayStride: Vertex.byteSize,
-      stepMode: 'vertex'
-    },
-    {
-      attributes: [
-        {
-          shaderLocation: LocInstance + 0, // tint
-          offset: Instance.fields.tint.offset,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 1, // mvMatrix0
-          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 0,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 2, // mvMatrix1
-          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 1,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 3, // mvMatrix2
-          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 2,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 4, // mvMatrix3
-          offset: Instance.fields.mvMatrix.offset + memory.Vec4F.byteSize * 3,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 5, // normalMatrix0
-          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 0,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 6, // normalMatrix1
-          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 1,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 7, // normalMatrix2
-          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 2,
-          format: 'float32x4',
-        },
-        {
-          shaderLocation: LocInstance + 8, // normalMatrix3
-          offset: Instance.fields.normalMatrix.offset + memory.Vec4F.byteSize * 3,
-          format: 'float32x4',
-        },
-      ],
-      arrayStride: Instance.byteSize,
-      stepMode: 'instance'
-    },
-  ];
-
   const shaderModule = device.createShaderModule({
     code: await downloadText('shaders.wgsl')
   });
 
-  /**
-   * @type {GPURenderPipelineDescriptor}
-   */
-  const pipelineDescriptor = {
+  const { uniformsBindLayout, lightsBindLayout, textureBindLayout } = getBindGroupLayouts(device);
+
+  const renderPipeline = device.createRenderPipeline({
     vertex: {
       module: shaderModule,
       entryPoint: 'vertex_main',
-      buffers: vertexBufferLayout
+      buffers: VertexBufferLayout,
     },
     fragment: {
       module: shaderModule,
       entryPoint: 'fragment_main',
       targets: [
         {
-          format: canvasTextureFormat
+          format: canvasTextureFormat,
         },
       ],
     },
@@ -232,7 +148,6 @@ async function main() {
       topology: 'triangle-list',
       cullMode: 'back',
     },
-    layout: 'auto',
     // Enable depth testing so that the fragment closest to the camera
     // is rendered in front.
     depthStencil: {
@@ -240,15 +155,20 @@ async function main() {
       depthCompare: 'less',
       format: 'depth24plus',
     },
-  };
+    layout: device.createPipelineLayout({
+      bindGroupLayouts: [
+        uniformsBindLayout,
+        lightsBindLayout,
+        textureBindLayout,
+      ],
+    }),
+  });
 
   const depthTexture = device.createTexture({
     size: [canvas.width, canvas.height],
     format: 'depth24plus',
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
-
-  const renderPipeline = device.createRenderPipeline(pipelineDescriptor);
 
   // Uniforms
   const timeUniformData = memory.allocate(memory.Float32);
@@ -265,50 +185,9 @@ async function main() {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  let cubeTexture;
-  {
-    const imageBitmap = await createImageBitmap(
-      await downloadBlob('lulu.png'),
-      {
-        colorSpaceConversion: 'none',
-        resizeQuality: 'high',
-        premultiplyAlpha: 'none',
-      },
-    );
+  let cubeTexture = await loadImageTextureHDR(device, 'lulu.png', canvasTextureFormat);
 
-    cubeTexture = device.createTexture({
-      size: [imageBitmap.width, imageBitmap.height, 1],
-      format: canvasTextureFormat,
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: cubeTexture, colorSpace: 'display-p3', premultipliedAlpha: false },
-      [imageBitmap.width, imageBitmap.height]
-    );
-  }
-
-  let grassTexture;
-  {
-    const imageBitmap = await createImageBitmap(await downloadBlob('grass.jpg'));
-
-    grassTexture = device.createTexture({
-      size: [imageBitmap.width, imageBitmap.height, 1],
-      format: canvasTextureFormat,
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
-    device.queue.copyExternalImageToTexture(
-      { source: imageBitmap },
-      { texture: grassTexture },
-      [imageBitmap.width, imageBitmap.height]
-    );
-  }
+  let grassTexture = await loadImageTexture(device, 'grass.jpg', canvasTextureFormat);
 
   const sampler = device.createSampler({
     magFilter: 'linear',
@@ -316,7 +195,7 @@ async function main() {
   });
 
   const uniformBindGroup = device.createBindGroup({
-    layout: renderPipeline.getBindGroupLayout(0),
+    layout: uniformsBindLayout,
     entries: [
       {
         binding: 0,
@@ -334,7 +213,7 @@ async function main() {
   });
 
   const lightsBindGroup = device.createBindGroup({
-    layout: renderPipeline.getBindGroupLayout(1),
+    layout: lightsBindLayout,
     entries: [
       {
         binding: 0,
@@ -346,7 +225,7 @@ async function main() {
   });
 
   const cubeTextureBindGroup = device.createBindGroup({
-    layout: renderPipeline.getBindGroupLayout(2),
+    layout: textureBindLayout,
     entries: [
       {
         binding: 0,
@@ -360,7 +239,7 @@ async function main() {
   });
 
   const grassTextureBindGroup = device.createBindGroup({
-    layout: renderPipeline.getBindGroupLayout(2),
+    layout: textureBindLayout,
     entries: [
       {
         binding: 0,
@@ -453,7 +332,6 @@ async function main() {
     // Update uniforms
     device.queue.writeBuffer(timeBuffer, 0, timeUniformData);
     device.queue.writeBuffer(cameraBuffer, 0, cameraUniformData);
-    device.queue.writeBuffer(lightBuffer, 0, LightData);
     device.queue.writeBuffer(cubeInstanceBuffer, 0, CubeInstanceData);
     device.queue.writeBuffer(planeInstanceBuffer, 0, PlaneInstanceData);
 
