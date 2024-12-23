@@ -70,7 +70,9 @@ const TYPE_ARRAY = 'array';
 // Public helpers
 
 /**
- * @param {IType<any>} type
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @param {T} type
  * @param {number} [count=1]
  * @returns {ArrayBuffer}
  */
@@ -221,26 +223,27 @@ export class ArrayType {
 // Struct type
 
 /**
- * @template R
- * @template {IType<R>} T
- * @typedef {object} StructFieldDescriptor
- * @property {number} index
- * @property {T} type
- */
-
-/**
  * @template S
- * @typedef {{[Name in keyof S]: StructFieldDescriptor<any, IType<any>>}} StructDescriptor
+ * @typedef {{
+ *   [K in keyof S]:
+ *     S[K] extends {type: infer T}
+ *       ? {
+ *         index: number,
+ *         type: T extends IType<infer R> ? T : never,
+ *       }
+ *       : never
+ * }} StructDescriptor
+ * @see https://www.typescriptlang.org/docs/handbook/2/mapped-types.html
  */
 
 /**
  * @template {StructDescriptor<S>} S
- * @typedef {{[Name in keyof S]: StructField<S, Name, S[Name]>}} StructFieldsOf
+ * @typedef {{[K in keyof S]: StructField<S, K>}} StructFieldsOf
  */
 
 /**
  * @template {StructDescriptor<S>} S
- * @typedef {{[Name in keyof S]: ITypeR<S[Name]['type']>}} StructR
+ * @typedef {{[K in keyof S]: ITypeR<S[K]['type']>}} StructR
  */
 
 /**
@@ -249,7 +252,7 @@ export class ArrayType {
  */
 export class Struct {
   /**
-   * @type {Array<StructField<S, keyof S, StructFieldDescriptor<any, IType<any>>>>} fields
+   * @type {Array<StructField<S, keyof S>>} fields
    */
   #fields;
 
@@ -273,13 +276,11 @@ export class Struct {
     this.#fieldsByName = /** @type {StructFieldsOf<S>} */ ({});
 
     for (const name of typedObjectKeys(descriptor)) {
-      /**
-       * @type {StructFieldDescriptor<any, IType<any>>}
-       */
       const fieldDescriptor = descriptor[name];
+      const fieldType = /** @type {IType<unknown>} */ (fieldDescriptor.type);
 
       // Align the offset
-      offset = nextMultipleOf(offset, fieldDescriptor.type.alignment);
+      offset = nextMultipleOf(offset, fieldType.alignment);
 
       const field = new StructField(this, fieldDescriptor, name, offset);
 
@@ -296,7 +297,7 @@ export class Struct {
    * @returns {string}
    */
   toString() {
-    return `Struct(${this.#fields.map(field => `${String(field.name)}: ${String(field.type)}`).join(', ')})`;
+    return `Struct(${this.#fields.map(String).join(', ')})`;
   }
 
   /**
@@ -344,7 +345,7 @@ export class Struct {
     const obj = /** @type {StructR<S>} */ ({});
 
     for (const field of this.#fields) {
-      obj[field.name] = field.type.read(view, offset + field.offset);
+      obj[field.name] = field.read(view, offset);
     }
 
     return obj;
@@ -358,7 +359,7 @@ export class Struct {
   write(view, values, offset = 0) {
     for (const name of typedObjectKeys(this.#fieldsByName)) {
       const field = this.#fieldsByName[name];
-      field.type.write(view, values[name], offset + field.offset);
+      field.write(view, values[name], offset);
     }
   }
 
@@ -395,13 +396,13 @@ export class Struct {
   /**
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
-   * @returns {{[Name in keyof S]: ArrayBufferView}}
+   * @returns {{[K in keyof S]: ArrayBufferView}}
    */
   viewObject(buffer, offset = 0) {
-    const obj = /** @type {{[Name in keyof S]: any}} */ ({});
+    const obj = /** @type {{[K in keyof S]: ArrayBufferView}} */ ({});
 
     for (const field of this.#fields) {
-      obj[field.name] = field.type.view(buffer, offset + field.offset);
+      obj[field.name] = field.view(buffer, offset);
     }
 
     return obj;
@@ -411,7 +412,7 @@ export class Struct {
    * @param {ArrayBuffer} buffer
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {{[Name in keyof S]: ArrayBufferView}}
+   * @returns {{[K in keyof S]: ArrayBufferView}}
    */
   viewObjectAt(buffer, index, offset = 0) {
     return this.viewObject(buffer, index * this.byteSize + offset);
@@ -421,7 +422,9 @@ export class Struct {
 /**
  * @template {StructDescriptor<S>} S
  * @template {keyof S} Key
- * @template {StructFieldDescriptor<any, any>} F
+ * @template {{index: number, type: T}} [F=S[Key]]
+ * @template {IType<R>} [T=S[Key]['type']]
+ * @template [R=ITypeR<T>]
  */
 class StructField {
   /**
@@ -440,7 +443,7 @@ class StructField {
   #name;
 
   /**
-   * @type {F['type']} type
+   * @type {T} type
    */
   #type;
 
@@ -463,16 +466,12 @@ class StructField {
     this.#offset = offset;
   }
 
+  toString() {
+    return `${String(this.#name)}: ${String(this.#type)}`;
+  }
+
   get name() {
     return this.#name;
-  }
-
-  get index() {
-    return this.#index;
-  }
-
-  get type() {
-    return this.#type;
   }
 
   get byteSize() {
@@ -508,7 +507,7 @@ class StructField {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {ITypeR<F['type']>}
+   * @returns {R}
    */
   readAt(view, index, offset = 0) {
     return this.#type.read(view, index * this.#parent.byteSize + this.#offset + offset);
