@@ -17,98 +17,15 @@ import { Screen } from '../common/display.js';
 
 import * as memory from '../common/memory.js';
 
-const Vertex = new memory.Struct({
-  position: { index: 0, type: memory.Vec4F },
-  color: { index: 1, type: memory.Vec4F },
-  normal: { index: 2, type: memory.Vec3F },
-  uv: { index: 3, type: memory.Vec2F },
-});
+import {
+  Vertex,
+  Instance,
+  Light,
+  CameraUniform,
+} from './types.js';
 
-const Instance = new memory.Struct({
-  tint: { index: 0, type: memory.Vec4F },
-  model: { index: 1, type: memory.Mat4x4F },
-  mvMatrix: { index: 2, type: memory.Mat4x4F },
-  normalMatrix: { index: 3, type: memory.Mat4x4F },
-});
-
-const Light = new memory.Struct({
-  position: { index: 0, type: memory.Vec4F },
-  color: { index: 1, type: memory.Vec4F },
-});
-
-const VertexQuad = new memory.ArrayType(Vertex, 6);
-
-const CubeMesh = new memory.ArrayType(VertexQuad, 6);
-
-const PlaneDivisions = 10;
-
-const PlaneMesh = new memory.ArrayType(VertexQuad, PlaneDivisions * PlaneDivisions);
-
-const CameraUniform = new memory.Struct({
-  projection: { index: 0, type: memory.Mat4x4F },
-  view: { index: 1, type: memory.Mat4x4F },
-});
-
-const CubeMeshData = memory.allocate(CubeMesh);
-{
-  const view = new DataView(CubeMeshData);
-  CubeMesh.write(view, [
-    // Front face
-    [
-      { position: [-1, -1, 1, 1], color: [1, 0, 0, 1], normal: [0, 0, 1], uv: [0, 0] },
-      { position: [1, -1, 1, 1], color: [0, 1, 0, 1], normal: [0, 0, 1], uv: [1, 0] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
-      { position: [-1, 1, 1, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 1] },
-      { position: [-1, -1, 1, 1], color: [1, 0, 0, 1], normal: [0, 0, 1], uv: [0, 0] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
-    ],
-    // Back face
-    [
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, 0, -1], uv: [0, 0] },
-      { position: [-1, 1, -1, 1], color: [0, 1, 0, 1], normal: [0, 0, -1], uv: [0, 1] },
-      { position: [1, 1, -1, 1], color: [0, 0, 1, 1], normal: [0, 0, -1], uv: [1, 1] },
-      { position: [1, -1, -1, 1], color: [1, 1, 1, 1], normal: [0, 0, -1], uv: [1, 0] },
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, 0, -1], uv: [0, 0] },
-      { position: [1, 1, -1, 1], color: [0, 0, 1, 1], normal: [0, 0, -1], uv: [1, 1] },
-    ],
-    // Top face
-    [
-      { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
-      { position: [-1, 1, 1, 1], color: [0, 1, 0, 1], normal: [0, 1, 0], uv: [0, 1] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
-      { position: [1, 1, -1, 1], color: [1, 1, 1, 1], normal: [0, 1, 0], uv: [1, 0] },
-      { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
-    ],
-    // Bottom face
-    [
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, -1, 0], uv: [0, 0] },
-      { position: [1, -1, -1, 1], color: [0, 1, 0, 1], normal: [0, -1, 0], uv: [1, 0] },
-      { position: [1, -1, 1, 1], color: [0, 0, 1, 1], normal: [0, -1, 0], uv: [1, 1] },
-      { position: [-1, -1, 1, 1], color: [1, 1, 1, 1], normal: [0, -1, 0], uv: [0, 1] },
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, -1, 0], uv: [0, 0] },
-      { position: [1, -1, 1, 1], color: [0, 0, 1, 1], normal: [0, -1, 0], uv: [1, 1] },
-    ],
-    // Right face
-    [
-      { position: [1, -1, -1, 1], color: [1, 0, 0, 1], normal: [1, 0, 0], uv: [0, 0] },
-      { position: [1, 1, -1, 1], color: [0, 1, 0, 1], normal: [1, 0, 0], uv: [1, 0] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [1, 0, 0], uv: [1, 1] },
-      { position: [1, -1, 1, 1], color: [1, 1, 1, 1], normal: [1, 0, 0], uv: [0, 1] },
-      { position: [1, -1, -1, 1], color: [1, 0, 0, 1], normal: [1, 0, 0], uv: [0, 0] },
-      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [1, 0, 0], uv: [1, 1] },
-    ],
-    // Left face
-    [
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [-1, 0, 0], uv: [0, 0] },
-      { position: [-1, -1, 1, 1], color: [0, 1, 0, 1], normal: [-1, 0, 0], uv: [1, 0] },
-      { position: [-1, 1, 1, 1], color: [0, 0, 1, 1], normal: [-1, 0, 0], uv: [1, 1] },
-      { position: [-1, 1, -1, 1], color: [1, 1, 1, 1], normal: [-1, 0, 0], uv: [0, 1] },
-      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [-1, 0, 0], uv: [0, 0] },
-      { position: [-1, 1, 1, 1], color: [0, 0, 1, 1], normal: [-1, 0, 0], uv: [1, 1] },
-    ],
-  ]);
-}
+import { CubeMeshData } from './mesh-cube.js';
+import { PlaneMeshData } from './mesh-plane.js';
 
 const CubeInstanceData = memory.allocate(Instance, 2);
 {
@@ -138,29 +55,6 @@ const CubeInstanceData = memory.allocate(Instance, 2);
     mat4.identity(model);
     mat4.translate(model, position, model);
     mat4.scale(model, scale, model);
-  }
-}
-
-const PlaneMeshData = memory.allocate(PlaneMesh);
-{
-  const view = new DataView(PlaneMeshData);
-  let i = 0;
-  for (let x = 0; x < PlaneDivisions; x++) {
-    for (let y = 0; y < PlaneDivisions; y++) {
-      const x0 = x / PlaneDivisions - 0.5;
-      const x1 = (x + 1) / PlaneDivisions - 0.5;
-      const y0 = y / PlaneDivisions - 0.5;
-      const y1 = (y + 1) / PlaneDivisions - 0.5;
-
-      PlaneMesh.set(view, i++, [
-        { position: [x0, y0, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 0] },
-        { position: [x1, y0, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [1, 0] },
-        { position: [x1, y1, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
-        { position: [x0, y1, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 1] },
-        { position: [x0, y0, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 0] },
-        { position: [x1, y1, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
-      ]);
-    }
   }
 }
 
@@ -195,6 +89,20 @@ const LightData = memory.allocate(Light, 1);
   });
 }
 
+/**
+ * @param {GPUDevice} device
+ * @param {ArrayBuffer} data
+ * @param {GPUBufferUsageFlags} usage
+ */
+function createBufferFromData(device, data, usage) {
+  const buffer = device.createBuffer({
+    size: data.byteLength,
+    usage: usage | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(buffer, 0, data);
+  return buffer;
+}
+
 async function main() {
   const { canvas, displayW, displayH } = Screen.setup(document.body, window.devicePixelRatio);
 
@@ -204,35 +112,13 @@ async function main() {
 
   const gpuTimingAdapter = createGPUTimingAdapter(device);
 
-  const cubeVertexBuffer = device.createBuffer({
-    size: CubeMeshData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(cubeVertexBuffer, 0, CubeMeshData);
+  const cubeVertexBuffer = createBufferFromData(device, CubeMeshData, GPUBufferUsage.VERTEX);
+  const planeVertexBuffer = createBufferFromData(device, PlaneMeshData, GPUBufferUsage.VERTEX);
 
-  const cubeInstanceBuffer = device.createBuffer({
-    size: CubeInstanceData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(cubeInstanceBuffer, 0, CubeInstanceData);
+  const cubeInstanceBuffer = createBufferFromData(device, CubeInstanceData, GPUBufferUsage.VERTEX);
+  const planeInstanceBuffer = createBufferFromData(device, PlaneInstanceData, GPUBufferUsage.VERTEX);
 
-  const planeVertexBuffer = device.createBuffer({
-    size: PlaneMeshData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(planeVertexBuffer, 0, PlaneMeshData);
-
-  const planeInstanceBuffer = device.createBuffer({
-    size: PlaneInstanceData.byteLength,
-    usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(planeInstanceBuffer, 0, PlaneInstanceData);
-
-  const lightBuffer = device.createBuffer({
-    size: LightData.byteLength,
-    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(lightBuffer, 0, LightData);
+  const lightBuffer = createBufferFromData(device, LightData, GPUBufferUsage.STORAGE);
 
   const LocVertex = 0;
   const LocInstance = 4;

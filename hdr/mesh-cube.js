@@ -1,0 +1,63 @@
+import * as memory from '../common/memory.js';
+import { CubeMesh } from './types.js';
+
+export const CubeMeshData = memory.allocate(CubeMesh);
+{
+  const view = new DataView(CubeMeshData);
+  CubeMesh.write(view, [
+    // Front face
+    [
+      { position: [-1, -1, 1, 1], color: [1, 0, 0, 1], normal: [0, 0, 1], uv: [0, 0] },
+      { position: [1, -1, 1, 1], color: [0, 1, 0, 1], normal: [0, 0, 1], uv: [1, 0] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
+      { position: [-1, 1, 1, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 1] },
+      { position: [-1, -1, 1, 1], color: [1, 0, 0, 1], normal: [0, 0, 1], uv: [0, 0] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 0, 1], uv: [1, 1] },
+    ],
+    // Back face
+    [
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, 0, -1], uv: [0, 0] },
+      { position: [-1, 1, -1, 1], color: [0, 1, 0, 1], normal: [0, 0, -1], uv: [0, 1] },
+      { position: [1, 1, -1, 1], color: [0, 0, 1, 1], normal: [0, 0, -1], uv: [1, 1] },
+      { position: [1, -1, -1, 1], color: [1, 1, 1, 1], normal: [0, 0, -1], uv: [1, 0] },
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, 0, -1], uv: [0, 0] },
+      { position: [1, 1, -1, 1], color: [0, 0, 1, 1], normal: [0, 0, -1], uv: [1, 1] },
+    ],
+    // Top face
+    [
+      { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
+      { position: [-1, 1, 1, 1], color: [0, 1, 0, 1], normal: [0, 1, 0], uv: [0, 1] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
+      { position: [1, 1, -1, 1], color: [1, 1, 1, 1], normal: [0, 1, 0], uv: [1, 0] },
+      { position: [-1, 1, -1, 1], color: [1, 0, 0, 1], normal: [0, 1, 0], uv: [0, 0] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [0, 1, 0], uv: [1, 1] },
+    ],
+    // Bottom face
+    [
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, -1, 0], uv: [0, 0] },
+      { position: [1, -1, -1, 1], color: [0, 1, 0, 1], normal: [0, -1, 0], uv: [1, 0] },
+      { position: [1, -1, 1, 1], color: [0, 0, 1, 1], normal: [0, -1, 0], uv: [1, 1] },
+      { position: [-1, -1, 1, 1], color: [1, 1, 1, 1], normal: [0, -1, 0], uv: [0, 1] },
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [0, -1, 0], uv: [0, 0] },
+      { position: [1, -1, 1, 1], color: [0, 0, 1, 1], normal: [0, -1, 0], uv: [1, 1] },
+    ],
+    // Right face
+    [
+      { position: [1, -1, -1, 1], color: [1, 0, 0, 1], normal: [1, 0, 0], uv: [0, 0] },
+      { position: [1, 1, -1, 1], color: [0, 1, 0, 1], normal: [1, 0, 0], uv: [1, 0] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [1, 0, 0], uv: [1, 1] },
+      { position: [1, -1, 1, 1], color: [1, 1, 1, 1], normal: [1, 0, 0], uv: [0, 1] },
+      { position: [1, -1, -1, 1], color: [1, 0, 0, 1], normal: [1, 0, 0], uv: [0, 0] },
+      { position: [1, 1, 1, 1], color: [0, 0, 1, 1], normal: [1, 0, 0], uv: [1, 1] },
+    ],
+    // Left face
+    [
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [-1, 0, 0], uv: [0, 0] },
+      { position: [-1, -1, 1, 1], color: [0, 1, 0, 1], normal: [-1, 0, 0], uv: [1, 0] },
+      { position: [-1, 1, 1, 1], color: [0, 0, 1, 1], normal: [-1, 0, 0], uv: [1, 1] },
+      { position: [-1, 1, -1, 1], color: [1, 1, 1, 1], normal: [-1, 0, 0], uv: [0, 1] },
+      { position: [-1, -1, -1, 1], color: [1, 0, 0, 1], normal: [-1, 0, 0], uv: [0, 0] },
+      { position: [-1, 1, 1, 1], color: [0, 0, 1, 1], normal: [-1, 0, 0], uv: [1, 1] },
+    ],
+  ]);
+}
