@@ -2,14 +2,70 @@ import { assert } from './utils.js';
 
 // Type annotations
 
+const GPU_BOOL = 'bool';
+const GPU_I32 = 'i32';
+const GPU_U32 = 'u32';
+const GPU_F16 = 'f16';
+const GPU_F32 = 'f32';
+const GPU_VEC2 = 'vec2';
+const GPU_VEC3 = 'vec3';
+const GPU_VEC4 = 'vec4';
+const GPU_MAT2X2 = 'mat2x2';
+const GPU_MAT3X3 = 'mat3x3';
+const GPU_MAT4X4 = 'mat4x4';
+const GPU_ARRAY = 'array';
+const GPU_STRUCT = 'struct';
+
 /**
- * @typedef {'primitive'|'vector'|'matrix'|'struct'|'array'} IMetaType
+ * @type {ReadonlySet<GPUType>}
+ */
+const GPU_SCALAR_TYPES = new Set([GPU_BOOL, GPU_I32, GPU_U32, GPU_F16, GPU_F32]);
+
+/**
+ * @type {ReadonlySet<GPUType>}
+ */
+const GPU_NUMERIC_TYPES = new Set([GPU_I32, GPU_U32, GPU_F16, GPU_F32]);
+
+/**
+ * @typedef {typeof GPU_BOOL} GPUBoolType
+ */
+
+/**
+ * @typedef {typeof GPU_I32 | typeof GPU_U32} GPUIntegerType
+ */
+
+/**
+ * @typedef {typeof GPU_F16 | typeof GPU_F32} GPUFloatType
+ */
+
+/**
+ * @typedef {GPUBoolType|GPUIntegerType|GPUFloatType} GPUScalarType
+ */
+
+/**
+ * @typedef {typeof GPU_VEC2 | typeof GPU_VEC3 | typeof GPU_VEC4} GPUVectorType
+ */
+
+/**
+ * @typedef {typeof GPU_MAT2X2 | typeof GPU_MAT3X3 | typeof GPU_MAT4X4} GPUMatrixType
+ */
+
+/**
+ * @typedef {typeof GPU_ARRAY} GPUArrayType
+ */
+
+/**
+ * @typedef {typeof GPU_STRUCT} GPUStructureType
+ */
+
+/**
+ * @typedef {GPUScalarType|GPUVectorType|GPUMatrixType|GPUArrayType|GPUStructureType} GPUType
  */
 
 /**
  * @template R
  * @typedef {object} IType
- * @property {IMetaType} type
+ * @property {GPUType} type
  * @property {number} byteSize
  * @property {number} alignment
  * @property {(view: DataView, offset?: number) => R} read
@@ -38,33 +94,6 @@ import { assert } from './utils.js';
  * @template T
  * @typedef {[T, T, T, T]} Tup4
  */
-
-// Meta types
-
-/**
- * @type {IMetaType}
- */
-const TYPE_PRIMITIVE = 'primitive';
-
-/**
- * @type {IMetaType}
- */
-const TYPE_VECTOR = 'vector';
-
-/**
- * @type {IMetaType}
- */
-const TYPE_MATRIX = 'matrix';
-
-/**
- * @type {IMetaType}
- */
-const TYPE_STRUCT = 'struct';
-
-/**
- * @type {IMetaType}
- */
-const TYPE_ARRAY = 'array';
 
 // Public helpers
 
@@ -125,10 +154,10 @@ export class ArrayType {
   }
 
   /**
-   * @returns {IMetaType}
+   * @returns {typeof GPU_ARRAY}
    */
   get type() {
-    return TYPE_ARRAY;
+    return GPU_ARRAY;
   }
 
   /**
@@ -303,10 +332,10 @@ export class Struct {
   }
 
   /**
-   * @returns {IMetaType}
+   * @returns {typeof GPU_STRUCT}
    */
   get type() {
-    return TYPE_STRUCT;
+    return GPU_STRUCT;
   }
 
   /**
@@ -553,7 +582,7 @@ export class Mat2x2 {
    * @param {IType<number>} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Matrix type must be a primitive type');
+    assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
     this.#type = type;
   }
 
@@ -561,8 +590,11 @@ export class Mat2x2 {
     return `Mat2x2(${String(this.#type)})`;
   }
 
+  /**
+   * @returns {typeof GPU_MAT2X2}
+   */
   get type() {
-    return TYPE_MATRIX;
+    return GPU_MAT2X2;
   }
 
   get byteSize() {
@@ -582,11 +614,11 @@ export class Mat2x2 {
     return [
       [
         this.get(view, 0, 0, offset),
-      this.get(view, 0, 1, offset),
+        this.get(view, 0, 1, offset),
       ],
       [
         this.get(view, 1, 0, offset),
-      this.get(view, 1, 1, offset),
+        this.get(view, 1, 1, offset),
       ],
     ];
   }
@@ -687,7 +719,7 @@ export class Mat3x3 {
    * @param {IType<number>} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Matrix type must be a primitive type');
+    assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
     this.#type = type;
   }
 
@@ -695,8 +727,11 @@ export class Mat3x3 {
     return `Mat3x3(${String(this.#type)})`;
   }
 
+  /**
+   * @returns {typeof GPU_MAT3X3}
+   */
   get type() {
-    return TYPE_MATRIX;
+    return GPU_MAT3X3;
   }
 
   get byteSize() {
@@ -833,7 +868,7 @@ export class Mat4x4 {
    * @param {IType<number>} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Matrix type must be a primitive type');
+    assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
     this.#type = type;
   }
 
@@ -841,8 +876,11 @@ export class Mat4x4 {
     return `Mat4x4(${String(this.#type)})`;
   }
 
+  /**
+   * @returns {typeof GPU_MAT4X4}
+   */
   get type() {
-    return TYPE_MATRIX;
+    return GPU_MAT4X4;
   }
 
   get byteSize() {
@@ -985,19 +1023,21 @@ export class Mat4x4 {
 // Vector types
 
 /**
- * @implements {IType<Tup2<number>>}
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup2<R>>}
  */
 export class Vec2 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Vector type must be a primitive type');
+    assert(GPU_SCALAR_TYPES.has(type.type), 'Vector type must be a scalar type');
     this.#type = type;
   }
 
@@ -1005,8 +1045,11 @@ export class Vec2 {
     return `Vec2(${String(this.#type)})`;
   }
 
+  /**
+   * @returns {typeof GPU_VEC2}
+   */
   get type() {
-    return TYPE_VECTOR;
+    return GPU_VEC2;
   }
 
   get byteSize() {
@@ -1020,7 +1063,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup2<number>}
+   * @returns {Tup2<R>}
    */
   read(view, offset = 0) {
     return [
@@ -1031,7 +1074,7 @@ export class Vec2 {
 
   /**
    * @param {DataView} view
-   * @param {Tup2<number>} value
+   * @param {Tup2<R>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1043,7 +1086,7 @@ export class Vec2 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup2<number>}
+   * @returns {Tup2<R>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1052,7 +1095,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup2<number>} value
+   * @param {Tup2<R>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1080,7 +1123,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
@@ -1089,7 +1132,7 @@ export class Vec2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
@@ -1097,7 +1140,7 @@ export class Vec2 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setX(view, value, offset = 0) {
@@ -1106,7 +1149,7 @@ export class Vec2 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setY(view, value, offset = 0) {
@@ -1115,20 +1158,22 @@ export class Vec2 {
 }
 
 /**
- * @implements {IType<Tup3<number>>}
+* @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup3<R>>}
  */
 export class Vec3 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
    *
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Vector type must be a primitive type');
+    assert(GPU_SCALAR_TYPES.has(type.type), 'Vector type must be a scalar type');
     this.#type = type;
   }
 
@@ -1136,8 +1181,11 @@ export class Vec3 {
     return `Vec3(${String(this.#type)})`;
   }
 
+  /**
+   * @returns {typeof GPU_VEC3}
+   */
   get type() {
-    return TYPE_VECTOR;
+    return GPU_VEC3;
   }
 
   get byteSize() {
@@ -1151,7 +1199,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup3<number>}
+   * @returns {Tup3<R>}
    */
   read(view, offset = 0) {
     return [
@@ -1163,7 +1211,7 @@ export class Vec3 {
 
   /**
    * @param {DataView} view
-   * @param {Tup3<number>} value
+   * @param {Tup3<R>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1176,7 +1224,7 @@ export class Vec3 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup3<number>}
+   * @returns {Tup3<R>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1185,7 +1233,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup3<number>} value
+   * @param {Tup3<R>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1217,7 +1265,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
@@ -1226,7 +1274,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
@@ -1235,7 +1283,7 @@ export class Vec3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getZ(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetZ);
@@ -1243,7 +1291,7 @@ export class Vec3 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setX(view, value, offset = 0) {
@@ -1252,7 +1300,7 @@ export class Vec3 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setY(view, value, offset = 0) {
@@ -1261,7 +1309,7 @@ export class Vec3 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setZ(view, value, offset = 0) {
@@ -1270,19 +1318,21 @@ export class Vec3 {
 }
 
 /**
- * @implements {IType<Tup4<number>>}
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup4<R>>}
  */
 export class Vec4 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
-    assert(type.type === TYPE_PRIMITIVE, 'Vector type must be a primitive type');
+    assert(GPU_SCALAR_TYPES.has(type.type), 'Vector type must be a scalar type');
     this.#type = type;
   }
 
@@ -1290,8 +1340,11 @@ export class Vec4 {
     return `Vec4(${String(this.#type)})`;
   }
 
+  /**
+   * @type {typeof GPU_VEC4}
+   */
   get type() {
-    return TYPE_VECTOR;
+    return GPU_VEC4;
   }
 
   get byteSize() {
@@ -1321,7 +1374,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup4<number>}
+   * @returns {Tup4<R>}
    */
   read(view, offset = 0) {
     return [
@@ -1334,7 +1387,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {Tup4<number>} value
+   * @param {Tup4<R>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -1348,7 +1401,7 @@ export class Vec4 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup4<number>}
+   * @returns {Tup4<R>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -1357,7 +1410,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup4<number>} value
+   * @param {Tup4<R>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1377,7 +1430,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns
+   * @returns {R}
    */
   getX(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetX);
@@ -1386,7 +1439,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getY(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetY);
@@ -1395,7 +1448,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getZ(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetZ);
@@ -1404,7 +1457,7 @@ export class Vec4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   getW(view, offset = 0) {
     return this.#type.read(view, offset + this.offsetW);
@@ -1412,7 +1465,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setX(view, value, offset = 0) {
@@ -1421,7 +1474,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setY(view, value, offset = 0) {
@@ -1430,7 +1483,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setZ(view, value, offset = 0) {
@@ -1439,7 +1492,7 @@ export class Vec4 {
 
   /**
    * @param {DataView} view
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   setW(view, value, offset = 0) {
@@ -1448,6 +1501,87 @@ export class Vec4 {
 }
 
 // Primitive types
+
+/**
+ * @implements {IType<number>}
+ */
+class Float16Impl {
+  /**
+   * @returns {string}
+   */
+  toString() {
+    return 'Float16';
+  }
+
+  /**
+   * @returns {typeof GPU_F16}
+   */
+  get type() {
+    return GPU_F16;
+  }
+
+  /**
+   * @returns {number}
+   */
+  get byteSize() {
+    return 2;
+  }
+
+  /**
+   * @returns {number}
+   */
+  get alignment() {
+    return 2;
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} [offset=0]
+   * @returns {number}
+   */
+  read(view, offset = 0) {
+    return DataViewGetFloat16(view, offset, true);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} value
+   * @param {number} [offset=0]
+   */
+  write(view, value, offset = 0) {
+    DataViewSetFloat16(view, offset, value, true);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} index
+   * @param {number} [offset=0]
+   * @returns {number}
+   */
+  readAt(view, index, offset = 0) {
+    return this.read(view, index * this.byteSize + offset);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} index
+   * @param {number} value
+   * @param {number} [offset=0]
+   */
+  writeAt(view, index, value, offset = 0) {
+    this.write(view, value, index * this.byteSize + offset);
+  }
+
+  /**
+   * @param {ArrayBuffer} buffer
+   * @param {number} [offset=0]
+   * @param {number} [length=1]
+   * @returns {Float16Array}
+   */
+  view(buffer, offset = 0, length = 1) {
+    return new Float16Array(buffer, offset, length);
+  }
+}
 
 /**
  * @implements {IType<number>}
@@ -1461,10 +1595,10 @@ class Float32Impl {
   }
 
   /**
-   * @returns {IMetaType}
+   * @returns {typeof GPU_F32}
    */
   get type() {
-    return TYPE_PRIMITIVE;
+    return GPU_F32;
   }
 
   /**
@@ -1542,10 +1676,10 @@ class Uint32Impl {
   }
 
   /**
-   * @returns {IMetaType}
+   * @returns {typeof GPU_U32}
    */
   get type() {
-    return TYPE_PRIMITIVE;
+    return GPU_U32;
   }
 
   /**
@@ -1623,10 +1757,10 @@ class Int32Impl {
   }
 
   /**
-   * @returns {IMetaType}
+   * @returns {typeof GPU_I32}
    */
   get type() {
-    return TYPE_PRIMITIVE;
+    return GPU_I32;
   }
 
   /**
@@ -1692,11 +1826,105 @@ class Int32Impl {
   }
 }
 
+/**
+ * @implements {IType<boolean>}
+ */
+class BoolImpl {
+  /**
+   * @returns {string}
+   */
+  toString() {
+    return 'Bool';
+  }
+
+  /**
+   * @returns {typeof GPU_BOOL}
+   */
+  get type() {
+    return GPU_BOOL;
+  }
+
+  /**
+   * @returns {number}
+   * @see https://gpuweb.github.io/gpuweb/wgsl/#why-is-bool-4-bytes
+   */
+  get byteSize() {
+    return 4;
+  }
+
+  /**
+   * @returns {number}
+   * @see https://gpuweb.github.io/gpuweb/wgsl/#why-is-bool-4-bytes
+   */
+  get alignment() {
+    return 4;
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} [offset=0]
+   * @returns {boolean}
+   */
+  read(view, offset = 0) {
+    return !!view.getInt32(offset, true);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {boolean} value
+   * @param {number} [offset=0]
+   */
+  write(view, value, offset = 0) {
+    view.setInt32(offset, value ? 1 : 0, true);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} index
+   * @param {number} [offset=0]
+   * @returns {boolean}
+   */
+  readAt(view, index, offset = 0) {
+    return this.read(view, index * this.byteSize + offset);
+  }
+
+  /**
+   * @param {DataView} view
+   * @param {number} index
+   * @param {boolean} value
+   * @param {number} [offset=0]
+   */
+  writeAt(view, index, value, offset = 0) {
+    this.write(view, value, index * this.byteSize + offset);
+  }
+
+  /**
+   * @param {ArrayBuffer} buffer
+   * @param {number} [offset=0]
+   * @param {number} [length=1]
+   * @returns {Uint32Array}
+   */
+  view(buffer, offset = 0, length = 1) {
+    return new Uint32Array(buffer, offset, length);
+  }
+}
+
 // Type helpers
 
+export const Bool = new BoolImpl();
+
+export const Float16 = new Float16Impl();
 export const Float32 = new Float32Impl();
 export const Uint32 = new Uint32Impl();
 export const Int32 = new Int32Impl();
+
+export const Vec2B = new Vec2(Bool);
+export const Vec2H = new Vec2(Float16);
+export const Vec3H = new Vec3(Float16);
+export const Vec4H = new Vec4(Float16);
+export const Mat2x2H = new Mat2x2(Float16);
+export const Mat3x3H = new Mat3x3(Float16);
+export const Mat4x4H = new Mat4x4(Float16);
 
 export const Vec2F = new Vec2(Float32);
 export const Vec3F = new Vec3(Float32);
@@ -1704,6 +1932,20 @@ export const Vec4F = new Vec4(Float32);
 export const Mat2x2F = new Mat2x2(Float32);
 export const Mat3x3F = new Mat3x3(Float32);
 export const Mat4x4F = new Mat4x4(Float32);
+
+export const Vec2U = new Vec2(Uint32);
+export const Vec3U = new Vec3(Uint32);
+export const Vec4U = new Vec4(Uint32);
+export const Mat2x2U = new Mat2x2(Uint32);
+export const Mat3x3U = new Mat3x3(Uint32);
+export const Mat4x4U = new Mat4x4(Uint32);
+
+export const Vec2I = new Vec2(Int32);
+export const Vec3I = new Vec3(Int32);
+export const Vec4I = new Vec4(Int32);
+export const Mat2x2I = new Mat2x2(Int32);
+export const Mat3x3I = new Mat3x3(Int32);
+export const Mat4x4I = new Mat4x4(Int32);
 
 // Private helpers
 
@@ -1724,4 +1966,140 @@ function nextMultipleOf(value, multiple) {
  */
 function typedObjectKeys(obj) {
   return /** @type {(keyof T)[]} */ (Object.keys(obj));
+}
+
+/**
+ * @param {DataView} view
+ * @param {number} byteOffset
+ * @param {boolean} littleEndian
+ * @returns {number}
+ */
+function DataViewGetFloat16(view, byteOffset, littleEndian) {
+  const value = view.getUint16(byteOffset, littleEndian);
+  const sign = value & 0x8000;
+  const exponent = (value & 0x7C00) >> 10;
+  const fraction = value & 0x03FF;
+  if (exponent === 0) {
+    return sign ? -0 : 0;
+  }
+  if (exponent === 0x1F) {
+    return fraction ? NaN : sign ? -Infinity : Infinity;
+  }
+  return (sign ? -1 : 1) * (2 ** (exponent - 15)) * (1 + fraction / 0x400);
+}
+
+/**
+ * @param {DataView} view
+ * @param {number} byteOffset
+ * @param {number} value
+ * @param {boolean} littleEndian
+ */
+function DataViewSetFloat16(view, byteOffset, value, littleEndian) {
+  let sign = 0;
+  let exponent = 0;
+  let fraction = 0;
+  if (isNaN(value)) {
+    sign = 0;
+    exponent = 0x1F;
+    fraction = 1;
+  } else if (value === Infinity) {
+    sign = 0;
+    exponent = 0x1F;
+    fraction = 0;
+  } else if (value === -Infinity) {
+    sign = 1;
+    exponent = 0x1F;
+    fraction = 0;
+  } else if (value === 0) {
+    sign = 1 / value === -Infinity ? 1 : 0;
+    exponent = 0;
+    fraction = 0;
+  } else {
+    sign = value < 0 ? 1 : 0;
+    const absValue = Math.abs(value);
+    const log2 = Math.floor(Math.log2(absValue));
+    exponent = log2 + 15;
+    fraction = (absValue / (2 ** log2) - 1) * 0x400;
+  }
+  const result = (sign << 15) | (exponent << 10) | fraction;
+  view.setUint16(byteOffset, result, littleEndian);
+}
+
+/**
+ * @implements {ArrayBufferView}
+ */
+class Float16Array {
+  /**
+   * @readonly
+   */
+  static BYTES_PER_ELEMENT = 2;
+
+  /**
+   * @type {DataView}
+   */
+  #view;
+
+  /**
+   * @type {number}
+   */
+  #byteOffset;
+
+  /**
+   * @type {number}
+   */
+  #length;
+
+  /**
+   * @param {ArrayBuffer} buffer
+   * @param {number} [byteOffset=0]
+   * @param {number} [length=1]
+   */
+  constructor(buffer, byteOffset = 0, length = 1) {
+    this.#view = new DataView(buffer, byteOffset, length * 2);
+    this.#byteOffset = byteOffset;
+    this.#length = length;
+
+    return new Proxy(this, {
+      get(target, prop) {
+        if (typeof prop === 'string' && !isNaN(Number(prop))) {
+          return target.#get(Number(prop));
+        }
+        return (/** @type {any} */ (target))[prop];
+      },
+      set(target, prop, value) {
+        if (typeof prop === 'string' && !isNaN(Number(prop))) {
+          target.#set(Number(prop), value);
+        }
+        return true;
+      },
+    });
+  }
+
+  get buffer() {
+    return this.#view.buffer;
+  }
+
+  get byteLength() {
+    return this.#view.byteLength;
+  }
+
+  get byteOffset() {
+    return this.#view.byteOffset;
+  }
+
+  /**
+   * @param {number} index
+   * @returns {number}
+   */
+  #get(index) {
+    return DataViewGetFloat16(this.#view, index * 2, true);
+  }
+
+  /**
+   * @param {number} index
+   * @param {number} value
+   */
+  #set(index, value) {
+    DataViewSetFloat16(this.#view, index * 2, value, true);
+  }
 }

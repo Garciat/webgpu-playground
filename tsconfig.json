@@ -1,6 +1,6 @@
 {
   "include": ["**/*.js"],
-  "exclude": [],
+  "exclude": ["tests"],
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
