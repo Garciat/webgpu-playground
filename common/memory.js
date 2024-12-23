@@ -154,7 +154,7 @@ export class ArrayType {
     const values = Array(this.#length);
 
     for (let i = 0; i < this.#length; i++) {
-      values[i] = this.#type.read(view, offset + i * this.#type.byteSize);
+      values[i] = this.get(view, i, offset);
     }
 
     return values;
@@ -167,7 +167,7 @@ export class ArrayType {
    */
   write(view, values, offset = 0) {
     for (let i = 0; i < this.#length; i++) {
-      this.#type.write(view, values[i], offset + i * this.#type.byteSize);
+      this.set(view, i, values[i], offset);
     }
   }
 
@@ -208,7 +208,7 @@ export class ArrayType {
    * @returns {R}
    */
   get(view, index, offset = 0) {
-    return this.#type.read(view, offset + index * this.#type.byteSize);
+    return this.#type.readAt(view, index, offset);
   }
 
   /**
@@ -218,7 +218,7 @@ export class ArrayType {
    * @param {number} [offset=0]
    */
   set(view, index, value, offset = 0) {
-    this.#type.write(view, value, offset + index * this.#type.byteSize);
+    this.#type.writeAt(view, index, value, offset);
   }
 }
 
