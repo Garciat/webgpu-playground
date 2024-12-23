@@ -164,7 +164,7 @@ export class ArrayType {
    * @returns {number}
    */
   get byteSize() {
-    return this.#type.byteSize * this.#length;
+    return this.#length * wgslRoundUp(this.#type.alignment, this.#type.byteSize);
   }
 
   /**
@@ -293,15 +293,22 @@ export class Struct {
   #fieldsByName;
 
   /**
+   * @type {number}
+   */
+  #alignment;
+
+  /**
    * @type {number} size
    */
   #size;
 
   /**
    * @param {S} descriptor
+   * @see https://gpuweb.github.io/gpuweb/wgsl/#structure-member-layout
    */
   constructor(descriptor) {
     let offset = 0;
+    let alignment = 0;
 
     this.#fields = Array(Object.keys(descriptor).length);
     this.#fieldsByName = /** @type {StructFieldsOf<S>} */ ({});
@@ -310,18 +317,21 @@ export class Struct {
       const fieldDescriptor = descriptor[name];
       const fieldType = /** @type {IType<unknown>} */ (fieldDescriptor.type);
 
-      // Align the offset
-      offset = nextMultipleOf(offset, fieldType.alignment);
+      if (fieldDescriptor.index > 0) {
+        // Align the offset
+        offset = wgslRoundUp(fieldType.alignment, offset);
+      }
 
       const field = new StructField(this, fieldDescriptor, name, offset);
-
-      offset += field.byteSize;
-
       this.#fields[fieldDescriptor.index] = field;
       this.#fieldsByName[name] = field;
+
+      offset += fieldType.byteSize;
+      alignment = Math.max(alignment, fieldType.alignment);
     }
 
-    this.#size = nextMultipleOf(offset, this.alignment);
+    this.#alignment = alignment;
+    this.#size = wgslRoundUp(alignment, offset);
   }
 
   /**
@@ -356,7 +366,7 @@ export class Struct {
    * @returns {number}
    */
   get alignment() {
-    return 4;
+    return this.#alignment;
   }
 
   /**
@@ -602,7 +612,7 @@ export class Mat2x2 {
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return this.#type.alignment * 2;
   }
 
   /**
@@ -735,11 +745,11 @@ export class Mat3x3 {
   }
 
   get byteSize() {
-    return this.#type.byteSize * 9;
+    return this.#type.byteSize * 12;
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return this.#type.alignment * 4;
   }
 
   /**
@@ -888,7 +898,7 @@ export class Mat4x4 {
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return this.#type.alignment * 4;
   }
 
   /**
@@ -1057,7 +1067,7 @@ export class Vec2 {
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return this.#type.alignment * 2;
   }
 
   /**
@@ -1193,7 +1203,7 @@ export class Vec3 {
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return nextPowerOfTwo(this.#type.alignment * 3);
   }
 
   /**
@@ -1352,7 +1362,7 @@ export class Vec4 {
   }
 
   get alignment() {
-    return this.#type.alignment;
+    return this.#type.alignment * 4;
   }
 
   get offsetX() {
@@ -1919,6 +1929,9 @@ export const Uint32 = new Uint32Impl();
 export const Int32 = new Int32Impl();
 
 export const Vec2B = new Vec2(Bool);
+export const Vec3B = new Vec3(Bool);
+export const Vec4B = new Vec4(Bool);
+
 export const Vec2H = new Vec2(Float16);
 export const Vec3H = new Vec3(Float16);
 export const Vec4H = new Vec4(Float16);
@@ -1951,12 +1964,20 @@ export const Mat4x4I = new Mat4x4(Int32);
 
 /**
  * @param {number} value
- * @param {number} multiple
  * @returns {number}
  */
-function nextMultipleOf(value, multiple) {
-  const extra = value % multiple;
-  return extra ? value + multiple - extra : value;
+function nextPowerOfTwo(value) {
+  return 2 ** Math.ceil(Math.log2(value));
+}
+
+/**
+ * @param {number} k
+ * @param {number} n
+ * @returns {number}
+ * @see https://gpuweb.github.io/gpuweb/wgsl/#roundup
+ */
+function wgslRoundUp(k, n) {
+  return Math.ceil(n / k) * k;
 }
 
 /**
