@@ -12,7 +12,6 @@ import { assert } from './utils.js';
  * @property {IMetaType} type
  * @property {number} byteSize
  * @property {number} alignment
- * @property {(view: ArrayBufferLike|ArrayBufferView) => number} count
  * @property {(view: DataView, offset?: number) => R} read
  * @property {(view: DataView, value: R, offset?: number) => void} write
  * @property {(view: DataView, index: number, offset?: number) => R} readAt
@@ -80,6 +79,17 @@ export function allocate(type, count = 1) {
   return new ArrayBuffer(type.byteSize * count);
 }
 
+/**
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @param {T} type
+ * @param {ArrayBufferLike|ArrayBufferView} buffer
+ * @returns {number}
+ */
+export function count(type, buffer) {
+  return buffer.byteLength / type.byteSize;
+}
+
 // Array type
 
 /**
@@ -133,14 +143,6 @@ export class ArrayType {
    */
   get alignment() {
     return this.#type.alignment;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**
@@ -326,14 +328,6 @@ export class Struct {
    */
   get alignment() {
     return 4;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**
@@ -580,14 +574,6 @@ export class Mat2x2 {
   }
 
   /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
-  }
-
-  /**
    * @param {DataView} view
    * @param {number} [offset=0]
    * @returns {Tup2<Tup2<number>>}
@@ -719,14 +705,6 @@ export class Mat3x3 {
 
   get alignment() {
     return this.#type.alignment;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**
@@ -873,14 +851,6 @@ export class Mat4x4 {
 
   get alignment() {
     return this.#type.alignment;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**
@@ -1048,14 +1018,6 @@ export class Vec2 {
   }
 
   /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
-  }
-
-  /**
    * @param {DataView} view
    * @param {number} [offset=0]
    * @returns {Tup2<number>}
@@ -1184,14 +1146,6 @@ export class Vec3 {
 
   get alignment() {
     return this.#type.alignment;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**
@@ -1365,14 +1319,6 @@ export class Vec4 {
   }
 
   /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
-  }
-
-  /**
    * @param {DataView} view
    * @param {number} [offset=0]
    * @returns {Tup4<number>}
@@ -1536,14 +1482,6 @@ class Float32Impl {
   }
 
   /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
-  }
-
-  /**
    * @param {DataView} view
    * @param {number} [offset=0]
    * @returns {number}
@@ -1625,14 +1563,6 @@ class Uint32Impl {
   }
 
   /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
-  }
-
-  /**
    * @param {DataView} view
    * @param {number} [offset=0]
    * @returns {number}
@@ -1711,14 +1641,6 @@ class Int32Impl {
    */
   get alignment() {
     return 4;
-  }
-
-  /**
-   * @param {ArrayBufferLike|ArrayBufferView} view
-   * @returns {number}
-   */
-  count(view) {
-    return view.byteLength / this.byteSize;
   }
 
   /**

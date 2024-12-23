@@ -518,7 +518,7 @@ async function main() {
    * @param {number} time
    */
   function updateInstances(time) {
-    for (let i = 0; i < Instance.count(CubeInstanceData); i++) {
+    for (let i = 0; i < memory.count(Instance, CubeInstanceData); i++) {
       const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(CubeInstanceData, i);
 
       mat4.identity(mvMatrix);
@@ -534,7 +534,7 @@ async function main() {
       mat4.transpose(normalMatrix, normalMatrix);
     }
 
-    for (let i = 0; i < Instance.count(PlaneInstanceData); i++) {
+    for (let i = 0; i < memory.count(Instance, PlaneInstanceData); i++) {
       const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(PlaneInstanceData, i);
 
       mat4.identity(mvMatrix);
@@ -605,12 +605,12 @@ async function main() {
     passEncoder.setBindGroup(2, cubeTextureBindGroup);
     passEncoder.setVertexBuffer(0, cubeVertexBuffer);
     passEncoder.setVertexBuffer(1, cubeInstanceBuffer);
-    passEncoder.draw(Vertex.count(CubeMeshData), Instance.count(CubeInstanceData));
+    passEncoder.draw(memory.count(Vertex, CubeMeshData), memory.count(Instance, CubeInstanceData));
 
     passEncoder.setBindGroup(2, grassTextureBindGroup);
     passEncoder.setVertexBuffer(0, planeVertexBuffer);
     passEncoder.setVertexBuffer(1, planeInstanceBuffer);
-    passEncoder.draw(Vertex.count(PlaneMeshData), Instance.count(PlaneInstanceData));
+    passEncoder.draw(memory.count(Vertex, PlaneMeshData), memory.count(Instance, PlaneInstanceData));
 
     passEncoder.end();
     gpuTimingAdapter.trackPassEnd(commandEncoder);
