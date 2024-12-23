@@ -1,11 +1,17 @@
 /**
  * @param {string} url
- * @param {'blob' | 'text' | 'json' | 'bytes' | 'arrayBuffer'} type
- * @returns
  */
-export async function download(url, type) {
+export async function downloadText(url) {
   const reponse = await fetch(url);
-  return await reponse[type]();
+  return await reponse.text();
+}
+
+/**
+ * @param {string} url
+ */
+export async function downloadBlob(url) {
+  const reponse = await fetch(url);
+  return await reponse.blob();
 }
 
 /**

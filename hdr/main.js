@@ -4,7 +4,7 @@ import {
   mat4,
 } from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
 
-import { download } from '../common/utils.js';
+import { downloadBlob, downloadText } from '../common/utils.js';
 
 import {
   RollingAverage,
@@ -206,10 +206,8 @@ async function main() {
     },
   ];
 
-  const shaders = await download('shaders.wgsl', 'text');
-
   const shaderModule = device.createShaderModule({
-    code: shaders
+    code: await downloadText('shaders.wgsl')
   });
 
   /**
@@ -270,7 +268,7 @@ async function main() {
   let cubeTexture;
   {
     const imageBitmap = await createImageBitmap(
-      await download('lulu.png', 'blob'),
+      await downloadBlob('lulu.png'),
       {
         colorSpaceConversion: 'none',
         resizeQuality: 'high',
@@ -295,7 +293,7 @@ async function main() {
 
   let grassTexture;
   {
-    const imageBitmap = await createImageBitmap(await download('grass.jpg', 'blob'),);
+    const imageBitmap = await createImageBitmap(await downloadBlob('grass.jpg'));
 
     grassTexture = device.createTexture({
       size: [imageBitmap.width, imageBitmap.height, 1],
