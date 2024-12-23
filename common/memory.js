@@ -580,16 +580,18 @@ class StructField {
 // Matrix types
 
 /**
- * @implements {IType<Tup2<Tup2<number>>>}
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup2<Tup2<R>>>}
  */
 export class Mat2x2 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
     assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
@@ -618,7 +620,7 @@ export class Mat2x2 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup2<Tup2<number>>}
+   * @returns {Tup2<Tup2<R>>}
    */
   read(view, offset = 0) {
     return [
@@ -635,7 +637,7 @@ export class Mat2x2 {
 
   /**
    * @param {DataView} view
-   * @param {Tup2<Tup2<number>>} value
+   * @param {Tup2<Tup2<R>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -649,7 +651,7 @@ export class Mat2x2 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup2<Tup2<number>>}
+   * @returns {Tup2<Tup2<R>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -658,7 +660,7 @@ export class Mat2x2 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup2<Tup2<number>>} value
+   * @param {Tup2<Tup2<R>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -698,7 +700,7 @@ export class Mat2x2 {
    * @param {number} row
    * @param {number} column
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
@@ -708,7 +710,7 @@ export class Mat2x2 {
    * @param {DataView} view
    * @param {number} row
    * @param {number} column
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   set(view, row, column, value, offset = 0) {
@@ -717,16 +719,18 @@ export class Mat2x2 {
 }
 
 /**
- * @implements {IType<Tup3<Tup3<number>>>}
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup3<Tup3<R>>>}
  */
 export class Mat3x3 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
     assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
@@ -755,7 +759,7 @@ export class Mat3x3 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup3<Tup3<number>>}
+   * @returns {Tup3<Tup3<R>>}
    */
   read(view, offset = 0) {
     return [
@@ -779,7 +783,7 @@ export class Mat3x3 {
 
   /**
    * @param {DataView} view
-   * @param {Tup3<Tup3<number>>} value
+   * @param {Tup3<Tup3<R>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -798,7 +802,7 @@ export class Mat3x3 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup3<Tup3<number>>}
+   * @returns {Tup3<Tup3<R>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -807,7 +811,7 @@ export class Mat3x3 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup3<Tup3<number>>} value
+   * @param {Tup3<Tup3<R>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -847,7 +851,7 @@ export class Mat3x3 {
    * @param {number} row
    * @param {number} column
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
@@ -857,7 +861,7 @@ export class Mat3x3 {
    * @param {DataView} view
    * @param {number} row
    * @param {number} column
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   set(view, row, column, value, offset = 0) {
@@ -866,16 +870,18 @@ export class Mat3x3 {
 }
 
 /**
- * @implements {IType<Tup4<Tup4<number>>>}
+ * @template {IType<R>} T
+ * @template [R=ITypeR<T>]
+ * @implements {IType<Tup4<Tup4<R>>>}
  */
 export class Mat4x4 {
   /**
-   * @type {IType<number>}
+   * @type {T}
    */
   #type;
 
   /**
-   * @param {IType<number>} type
+   * @param {T} type
    */
   constructor(type) {
     assert(GPU_NUMERIC_TYPES.has(type.type), 'Matrix type must be a numeric type');
@@ -904,7 +910,7 @@ export class Mat4x4 {
   /**
    * @param {DataView} view
    * @param {number} [offset=0]
-   * @returns {Tup4<Tup4<number>>}
+   * @returns {Tup4<Tup4<R>>}
    */
   read(view, offset = 0) {
     return [
@@ -937,7 +943,7 @@ export class Mat4x4 {
 
   /**
    * @param {DataView} view
-   * @param {Tup4<Tup4<number>>} value
+   * @param {Tup4<Tup4<R>>} value
    * @param {number} [offset=0]
    */
   write(view, value, offset = 0) {
@@ -963,7 +969,7 @@ export class Mat4x4 {
    * @param {DataView} view
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {Tup4<Tup4<number>>}
+   * @returns {Tup4<Tup4<R>>}
    */
   readAt(view, index, offset = 0) {
     return this.read(view, index * this.byteSize + offset);
@@ -972,7 +978,7 @@ export class Mat4x4 {
   /**
    * @param {DataView} view
    * @param {number} index
-   * @param {Tup4<Tup4<number>>} value
+   * @param {Tup4<Tup4<R>>} value
    * @param {number} [offset=0]
    */
   writeAt(view, index, value, offset = 0) {
@@ -1012,7 +1018,7 @@ export class Mat4x4 {
    * @param {number} row
    * @param {number} column
    * @param {number} [offset=0]
-   * @returns {number}
+   * @returns {R}
    */
   get(view, row, column, offset = 0) {
     return this.#type.read(view, offset + this.offset(row, column));
@@ -1022,7 +1028,7 @@ export class Mat4x4 {
    * @param {DataView} view
    * @param {number} row
    * @param {number} column
-   * @param {number} value
+   * @param {R} value
    * @param {number} [offset=0]
    */
   set(view, row, column, value, offset = 0) {
@@ -1515,7 +1521,7 @@ export class Vec4 {
 /**
  * @implements {IType<number>}
  */
-class Float16Impl {
+class Float16Type {
   /**
    * @returns {string}
    */
@@ -1596,7 +1602,7 @@ class Float16Impl {
 /**
  * @implements {IType<number>}
  */
-class Float32Impl {
+class Float32Type {
   /**
    * @returns {string}
    */
@@ -1677,7 +1683,7 @@ class Float32Impl {
 /**
  * @implements {IType<number>}
  */
-class Uint32Impl {
+class Uint32Type {
   /**
    * @returns {string}
    */
@@ -1758,7 +1764,7 @@ class Uint32Impl {
 /**
  * @implements {IType<number>}
  */
-class Int32Impl {
+class Int32Type {
   /**
    * @returns {string}
    */
@@ -1839,7 +1845,7 @@ class Int32Impl {
 /**
  * @implements {IType<boolean>}
  */
-class BoolImpl {
+class BoolType {
   /**
    * @returns {string}
    */
@@ -1921,12 +1927,12 @@ class BoolImpl {
 
 // Type helpers
 
-export const Bool = new BoolImpl();
+export const Bool = new BoolType();
 
-export const Float16 = new Float16Impl();
-export const Float32 = new Float32Impl();
-export const Uint32 = new Uint32Impl();
-export const Int32 = new Int32Impl();
+export const Float16 = new Float16Type();
+export const Float32 = new Float32Type();
+export const Uint32 = new Uint32Type();
+export const Int32 = new Int32Type();
 
 export const Vec2B = new Vec2(Bool);
 export const Vec3B = new Vec3(Bool);
