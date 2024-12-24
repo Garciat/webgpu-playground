@@ -103,16 +103,11 @@ export class Screen {
       alphaMode: 'premultiplied',
     });
 
-    const conf = context.getConfiguration();
-    if (!conf) {
-      throw Error('Couldn\'t get WebGPU context configuration.');
-    }
-
     return {
       adapter,
       device,
       context,
-      canvasTextureFormat: conf.format,
+      canvasTextureFormat: context.getCurrentTexture().format,
     };
   }
 }
