@@ -1,8 +1,9 @@
+/// <reference types="../vendored/webgpu-matrix@3.3.0/wgpu-matrix" />
+
 import {
   vec3,
-  vec4,
   mat4,
-} from 'https://wgpu-matrix.org/dist/3.x/wgpu-matrix.module.js';
+} from '../vendored/webgpu-matrix@3.3.0/wgpu-matrix';
 
 import { downloadBlob, downloadText } from '../common/utils.js';
 
@@ -173,7 +174,7 @@ async function main() {
   // Uniforms
   const timeUniformData = memory.allocate(memory.Float32);
   const cameraUniformData = memory.allocate(CameraUniform);
-  const cameraUniform = CameraUniform.viewObject(cameraUniformData);
+  const cameraUniform = CameraUniform.view(cameraUniformData);
 
   const timeBuffer = device.createBuffer({
     size: timeUniformData.byteLength,
@@ -282,7 +283,7 @@ async function main() {
    */
   function updateInstances(time) {
     for (let i = 0; i < memory.count(Instance, CubeInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(CubeInstanceData, i);
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewAt(CubeInstanceData, i);
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
@@ -298,7 +299,7 @@ async function main() {
     }
 
     for (let i = 0; i < memory.count(Instance, PlaneInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewObjectAt(PlaneInstanceData, i);
+      const { tint, model, mvMatrix, normalMatrix } = Instance.viewAt(PlaneInstanceData, i);
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);

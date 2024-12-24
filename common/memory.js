@@ -64,6 +64,7 @@ const GPU_NUMERIC_TYPES = new Set([GPU_I32, GPU_U32, GPU_F16, GPU_F32]);
 
 /**
  * @template R
+ * @template V
  * @typedef {object} IType
  * @property {GPUType} type
  * @property {number} byteSize
@@ -72,12 +73,17 @@ const GPU_NUMERIC_TYPES = new Set([GPU_I32, GPU_U32, GPU_F16, GPU_F32]);
  * @property {(view: DataView, value: R, offset?: number) => void} write
  * @property {(view: DataView, index: number, offset?: number) => R} readAt
  * @property {(view: DataView, index: number, value: R, offset?: number) => void} writeAt
- * @property {(buffer: ArrayBuffer, offset?: number, length?: number) => ArrayBufferView} view
+ * @property {(buffer: ArrayBuffer, offset?: number, length?: number) => V} view
  */
 
 /**
  * @template T
- * @typedef {T extends IType<infer R> ? R : never} ITypeR
+ * @typedef {T extends IType<infer R, infer V> ? R : never} ITypeR
+ */
+
+/**
+ * @template T
+ * @typedef {T extends IType<infer R, infer V> ? V : never} ITypeV
  */
 
 /**
@@ -98,8 +104,9 @@ const GPU_NUMERIC_TYPES = new Set([GPU_I32, GPU_U32, GPU_F16, GPU_F32]);
 // Public helpers
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
+ * @template [V=ITypeV<T>]
  * @param {T} type
  * @param {number} [count=1]
  * @returns {ArrayBuffer}
@@ -109,8 +116,9 @@ export function allocate(type, count = 1) {
 }
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
+ * @template [V=ITypeV<T>]
  * @param {T} type
  * @param {ArrayBufferLike|ArrayBufferView} buffer
  * @returns {number}
@@ -122,13 +130,14 @@ export function count(type, buffer) {
 // Array type
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<R[]>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<R[], V>}
  */
 export class ArrayType {
   /**
-   * @type {IType<R>}
+   * @type {IType<R, V>}
    */
   #type;
 
@@ -224,7 +233,7 @@ export class ArrayType {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * this.#length);
@@ -260,7 +269,7 @@ export class ArrayType {
  *     S[K] extends {type: infer T}
  *       ? {
  *         index: number,
- *         type: T extends IType<infer R> ? T : never,
+ *         type: T extends IType<infer R, infer V> ? T : never,
  *       }
  *       : never
  * }} StructDescriptor
@@ -279,7 +288,12 @@ export class ArrayType {
 
 /**
  * @template {StructDescriptor<S>} S
- * @implements {IType<StructR<S>>}
+ * @typedef {{[K in keyof S]: ITypeV<S[K]['type']>}} StructV
+ */
+
+/**
+ * @template {StructDescriptor<S>} S
+ * @implements {IType<StructR<S>, StructV<S>>}
  */
 export class Struct {
   /**
@@ -315,7 +329,7 @@ export class Struct {
 
     for (const name of typedObjectKeys(descriptor)) {
       const fieldDescriptor = descriptor[name];
-      const fieldType = /** @type {IType<unknown>} */ (fieldDescriptor.type);
+      const fieldType = /** @type {IType<unknown, unknown>} */ (fieldDescriptor.type);
 
       if (fieldDescriptor.index > 0) {
         // Align the offset
@@ -420,19 +434,10 @@ export class Struct {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {StructV<S>}
    */
   view(buffer, offset = 0, length = 1) {
-    return Float32.view(buffer, offset, this.#size * length / Float32.byteSize);
-  }
-
-  /**
-   * @param {ArrayBuffer} buffer
-   * @param {number} [offset=0]
-   * @returns {{[K in keyof S]: ArrayBufferView}}
-   */
-  viewObject(buffer, offset = 0) {
-    const obj = /** @type {{[K in keyof S]: ArrayBufferView}} */ ({});
+    const obj = /** @type {StructV<S>} */ ({});
 
     for (const field of this.#fields) {
       obj[field.name] = field.view(buffer, offset);
@@ -445,10 +450,10 @@ export class Struct {
    * @param {ArrayBuffer} buffer
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {{[K in keyof S]: ArrayBufferView}}
+   * @returns {StructV<S>}
    */
-  viewObjectAt(buffer, index, offset = 0) {
-    return this.viewObject(buffer, index * this.byteSize + offset);
+  viewAt(buffer, index, offset = 0) {
+    return this.view(buffer, index * this.byteSize + offset);
   }
 }
 
@@ -456,8 +461,9 @@ export class Struct {
  * @template {StructDescriptor<S>} S
  * @template {keyof S} Key
  * @template {{index: number, type: T}} [F=S[Key]]
- * @template {IType<R>} [T=S[Key]['type']]
+ * @template {IType<R, V>} [T=S[Key]['type']]
  * @template [R=ITypeR<T>]
+ * @template [V=ITypeV<T>]
  */
 class StructField {
   /**
@@ -560,7 +566,7 @@ class StructField {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, this.#offset + offset, length);
@@ -570,7 +576,7 @@ class StructField {
    * @param {ArrayBuffer} buffer
    * @param {number} index
    * @param {number} [offset=0]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   viewAt(buffer, index, offset = 0) {
     return this.#type.view(buffer, index * this.#parent.byteSize + this.#offset + offset);
@@ -580,9 +586,10 @@ class StructField {
 // Matrix types
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup2<Tup2<R>>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup2<Tup2<R>>, V>}
  */
 export class Mat2x2 {
   /**
@@ -671,7 +678,7 @@ export class Mat2x2 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 4);
@@ -719,9 +726,10 @@ export class Mat2x2 {
 }
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup3<Tup3<R>>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup3<Tup3<R>>, V>}
  */
 export class Mat3x3 {
   /**
@@ -822,7 +830,7 @@ export class Mat3x3 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 9);
@@ -870,9 +878,10 @@ export class Mat3x3 {
 }
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup4<Tup4<R>>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup4<Tup4<R>>, V>}
  */
 export class Mat4x4 {
   /**
@@ -989,7 +998,7 @@ export class Mat4x4 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 16);
@@ -1039,9 +1048,10 @@ export class Mat4x4 {
 // Vector types
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup2<R>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup2<R>, V>}
  */
 export class Vec2 {
   /**
@@ -1122,7 +1132,7 @@ export class Vec2 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 2);
@@ -1174,9 +1184,10 @@ export class Vec2 {
 }
 
 /**
-* @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup3<R>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup3<R>, V>}
  */
 export class Vec3 {
   /**
@@ -1260,7 +1271,7 @@ export class Vec3 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 3);
@@ -1334,9 +1345,10 @@ export class Vec3 {
 }
 
 /**
- * @template {IType<R>} T
+ * @template {IType<R, V>} T
  * @template [R=ITypeR<T>]
- * @implements {IType<Tup4<R>>}
+ * @template [V=ITypeV<T>]
+ * @implements {IType<Tup4<R>, V>}
  */
 export class Vec4 {
   /**
@@ -1437,7 +1449,7 @@ export class Vec4 {
    * @param {ArrayBuffer} buffer
    * @param {number} [offset=0]
    * @param {number} [length=1]
-   * @returns {ArrayBufferView}
+   * @returns {V}
    */
   view(buffer, offset = 0, length = 1) {
     return this.#type.view(buffer, offset, length * 4);
@@ -1519,7 +1531,7 @@ export class Vec4 {
 // Primitive types
 
 /**
- * @implements {IType<number>}
+ * @implements {IType<number, Float16Array>}
  */
 class Float16Type {
   /**
@@ -1600,7 +1612,7 @@ class Float16Type {
 }
 
 /**
- * @implements {IType<number>}
+ * @implements {IType<number, Float32Array>}
  */
 class Float32Type {
   /**
@@ -1681,7 +1693,7 @@ class Float32Type {
 }
 
 /**
- * @implements {IType<number>}
+ * @implements {IType<number, Uint32Array>}
  */
 class Uint32Type {
   /**
@@ -1762,7 +1774,7 @@ class Uint32Type {
 }
 
 /**
- * @implements {IType<number>}
+ * @implements {IType<number, Int32Array>}
  */
 class Int32Type {
   /**
@@ -1843,7 +1855,7 @@ class Int32Type {
 }
 
 /**
- * @implements {IType<boolean>}
+ * @implements {IType<boolean, Uint32Array>}
  */
 class BoolType {
   /**
