@@ -42,7 +42,7 @@ const CubeInstanceData = memory.allocate(Instance, 2);
 
     Instance.fields.tint.writeAt(view, 0, [1, 1, 1, 1]);
 
-    const model = Instance.fields.model.view(CubeInstanceData, 0);
+    const model = Instance.fields.model.viewAt(CubeInstanceData, 0);
     mat4.identity(model);
     mat4.translate(model, position, model);
     mat4.scale(model, scale, model);
@@ -73,7 +73,7 @@ const PlaneInstanceData = memory.allocate(Instance, 1);
 
     Instance.fields.tint.writeAt(view, 0, [1, 1, 1, 1]);
 
-    const model = Instance.fields.model.view(PlaneInstanceData, 0);
+    const model = Instance.fields.model.viewAt(PlaneInstanceData, 0);
     mat4.identity(model);
     mat4.translate(model, position, model);
     mat4.scale(model, scale, model);
