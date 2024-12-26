@@ -1,0 +1,61 @@
+body {
+  display: flex;
+  align-content: center;
+
+  background-color: #111;
+  color: #fff;
+}
+
+main {
+  display: flex;
+  flex-direction: column;
+  margin: auto;
+  width: 100%;
+}
+
+main > header {
+  text-align: center;
+}
+
+section {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+article {
+  position: relative;
+  margin: 1vw;
+  width: 100%;
+  min-width: 300px;
+  max-width: 20vw;
+  border: 1px solid #fff;
+}
+
+article > header {
+  position: absolute;
+  background-color: #333;
+}
+article > header > h2 {
+  margin: 0;
+  padding: 0.5vw;
+}
+
+article > footer {
+  background-color: #fff;
+  text-align: center;
+}
+article > footer > a {
+  display: block;
+  width: 100%;
+  line-height: 3em;
+  color: #000;
+  text-decoration: none;
+}
+
+article > iframe {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1;
+  border: none;
+}
