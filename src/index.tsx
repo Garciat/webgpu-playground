@@ -23,9 +23,9 @@ export default ({ search }: Lume.Data, { url }: Lume.Helpers) => {
                 <header>
                   <h2>{post.title}</h2>
                 </header>
-                <iframe src={post.url + "#timing=no"}></iframe>
+                <iframe src={url(post.url) + "#timing=no"}></iframe>
                 <footer>
-                  <a href={post.url}>Open</a>
+                  <a href={url(post.url)}>Open</a>
                 </footer>
               </article>
             ))}
