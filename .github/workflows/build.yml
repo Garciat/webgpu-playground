@@ -28,3 +28,4 @@ jobs:
         uses: Garciat/build/gh-pages@patch-1
         with:
           deno-version: v2.x
+          location: "https://garciat.com/webgpu-playground/"

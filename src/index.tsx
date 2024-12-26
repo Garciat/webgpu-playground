@@ -1,4 +1,4 @@
-export default ({ search }: Lume.Data) => {
+export default ({ search }: Lume.Data, { url }: Lume.Helpers) => {
   return (
     <html lang="en">
       <head>
@@ -7,7 +7,7 @@ export default ({ search }: Lume.Data) => {
         <title>garciat: webgpu-playground</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <link rel="stylesheet" href="/css/index.css" />
+        <link rel="stylesheet" href={url("/css/index.css")} />
       </head>
 
       <body>
