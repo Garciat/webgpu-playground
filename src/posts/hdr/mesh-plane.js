@@ -1,4 +1,5 @@
-import * as memory from '../../js/memory.js';
+import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+
 import { PlaneMesh, PlaneDivisions } from './types.js';
 
 export const PlaneMeshData = memory.allocate(PlaneMesh);

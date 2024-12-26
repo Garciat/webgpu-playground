@@ -3,6 +3,8 @@ import {
   mat4,
 } from 'npm:wgpu-matrix@3.3.0';
 
+import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+
 import { downloadText } from '../../js/utils.ts';
 
 import {
@@ -13,8 +15,6 @@ import {
 } from '../../js/webgpu-timing.js';
 
 import { Screen } from '../../js/display.js';
-
-import * as memory from '../../js/memory.js';
 
 import { loadImageTexture, loadImageTextureHDR } from '../../js/resources.js';
 
@@ -172,7 +172,7 @@ async function main() {
   // Uniforms
   const timeUniformData = memory.allocate(memory.Float32);
   const cameraUniformData = memory.allocate(CameraUniform);
-  const cameraUniform = CameraUniform.view(cameraUniformData);
+  const cameraUniform = CameraUniform.viewAt(cameraUniformData, 0);
 
   const timeBuffer = device.createBuffer({
     size: timeUniformData.byteLength,

@@ -138,7 +138,7 @@ export class TimingValuesDisplay {
     this.#element.appendChild(this.#textNode);
 
     // HACK
-    if (window.location.hash.includes('timing=no')) {
+    if (globalThis.location.hash.includes('timing=no')) {
       this.#element.style.display = 'none';
     }
   }
@@ -184,8 +184,8 @@ class GPUTimingNoop {
 
   trackPassEnd() { }
 
-  async getResult() {
-    return NaN;
+  getResult() {
+    return Promise.resolve(NaN);
   }
 }
 

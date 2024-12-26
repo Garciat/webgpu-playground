@@ -1,4 +1,4 @@
-import * as memory from './memory.js';
+import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
 
 const StaticQuadVertWGSL = `
 @vertex
