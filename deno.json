@@ -8,10 +8,16 @@
     "serve": "deno task lume -s"
   },
   "compilerOptions": {
+    "lib": [
+      "DOM",
+      "ESNext"
+    ],
     "types": [
-      "lume/types.ts"
+      "lume/types.ts",
+      "npm:@webgpu/types"
     ],
     "jsx": "react-jsx",
-    "jsxImportSource": "npm:preact"
+    "jsxImportSource": "npm:preact",
+    "strict": true
   }
 }

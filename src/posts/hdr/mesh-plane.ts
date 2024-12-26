@@ -1,6 +1,6 @@
-import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
 
-import { PlaneMesh, PlaneDivisions } from './types.js';
+import { PlaneDivisions, PlaneMesh } from "./types.ts";
 
 export const PlaneMeshData = memory.allocate(PlaneMesh);
 {
@@ -13,6 +13,7 @@ export const PlaneMeshData = memory.allocate(PlaneMesh);
       const y0 = y / PlaneDivisions - 0.5;
       const y1 = (y + 1) / PlaneDivisions - 0.5;
 
+      // deno-fmt-ignore
       PlaneMesh.set(view, i++, [
         { position: [x0, y0, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [0, 0] },
         { position: [x1, y0, 0, 1], color: [1, 1, 1, 1], normal: [0, 0, 1], uv: [1, 0] },

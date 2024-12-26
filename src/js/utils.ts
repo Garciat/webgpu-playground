@@ -3,9 +3,6 @@ export async function downloadText(url: string): Promise<string> {
   return await reponse.text();
 }
 
-/**
- * @param {string} url
- */
 export async function downloadBlob(url: string): Promise<Blob> {
   const reponse = await fetch(url);
   return await reponse.blob();

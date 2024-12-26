@@ -1,33 +1,25 @@
-import {
-  vec3,
-  mat4,
-} from 'npm:wgpu-matrix@3.3.0';
+import { mat4, vec3 } from "npm:wgpu-matrix@3.3.0";
 
-import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
 
-import { downloadText } from '../../js/utils.ts';
+import { downloadText } from "../../js/utils.ts";
 
 import {
+  createGPUTimingAdapter,
   RollingAverage,
   TimingManager,
   TimingValuesDisplay,
-  createGPUTimingAdapter,
-} from '../../js/webgpu-timing.js';
+} from "../../js/webgpu-timing.ts";
 
-import { Screen } from '../../js/display.js';
+import { Screen } from "../../js/display.ts";
 
-import { loadImageTexture, loadImageTextureHDR } from '../../js/resources.js';
+import { loadImageTexture, loadImageTextureHDR } from "../../js/resources.ts";
 
-import {
-  Vertex,
-  Instance,
-  Light,
-  CameraUniform,
-} from './types.js';
+import { CameraUniform, Instance, Light, Vertex } from "./types.ts";
 
-import { CubeMeshData } from './mesh-cube.js';
-import { PlaneMeshData } from './mesh-plane.js';
-import { VertexBufferLayout, getBindGroupLayouts } from './shaders-layout.js';
+import { CubeMeshData } from "./mesh-cube.ts";
+import { PlaneMeshData } from "./mesh-plane.ts";
+import { getBindGroupLayouts, VertexBufferLayout } from "./shaders-layout.ts";
 
 const CubeInstanceData = memory.allocate(Instance, 2);
 {
@@ -91,12 +83,11 @@ const LightData = memory.allocate(Light, 1);
   });
 }
 
-/**
- * @param {GPUDevice} device
- * @param {ArrayBuffer} data
- * @param {GPUBufferUsageFlags} usage
- */
-function createBufferFromData(device, data, usage) {
+function createBufferFromData(
+  device: GPUDevice,
+  data: ArrayBuffer,
+  usage: GPUBufferUsageFlags,
+) {
   const buffer = device.createBuffer({
     size: data.byteLength,
     usage: usage | GPUBufferUsage.COPY_DST,
@@ -106,37 +97,65 @@ function createBufferFromData(device, data, usage) {
 }
 
 async function main() {
-  const { canvas, displayW, displayH } = Screen.setup(document.body, window.devicePixelRatio);
+  const { canvas } = Screen.setup(
+    document.body,
+    globalThis.devicePixelRatio,
+  );
 
-  const { adapter, device, context, canvasTextureFormat } = await Screen.gpu(navigator.gpu, canvas, {
-    optionalFeatures: ['timestamp-query'],
-  });
+  const { device, context, canvasTextureFormat } = await Screen.gpu(
+    navigator.gpu,
+    canvas,
+    {
+      optionalFeatures: ["timestamp-query"],
+    },
+  );
 
   const gpuTimingAdapter = createGPUTimingAdapter(device);
 
-  const cubeVertexBuffer = createBufferFromData(device, CubeMeshData, GPUBufferUsage.VERTEX);
-  const planeVertexBuffer = createBufferFromData(device, PlaneMeshData, GPUBufferUsage.VERTEX);
+  const cubeVertexBuffer = createBufferFromData(
+    device,
+    CubeMeshData,
+    GPUBufferUsage.VERTEX,
+  );
+  const planeVertexBuffer = createBufferFromData(
+    device,
+    PlaneMeshData,
+    GPUBufferUsage.VERTEX,
+  );
 
-  const cubeInstanceBuffer = createBufferFromData(device, CubeInstanceData, GPUBufferUsage.VERTEX);
-  const planeInstanceBuffer = createBufferFromData(device, PlaneInstanceData, GPUBufferUsage.VERTEX);
+  const cubeInstanceBuffer = createBufferFromData(
+    device,
+    CubeInstanceData,
+    GPUBufferUsage.VERTEX,
+  );
+  const planeInstanceBuffer = createBufferFromData(
+    device,
+    PlaneInstanceData,
+    GPUBufferUsage.VERTEX,
+  );
 
-  const lightBuffer = createBufferFromData(device, LightData, GPUBufferUsage.STORAGE);
+  const lightBuffer = createBufferFromData(
+    device,
+    LightData,
+    GPUBufferUsage.STORAGE,
+  );
 
   const shaderModule = device.createShaderModule({
-    code: await downloadText('shaders.wgsl')
+    code: await downloadText("shaders.wgsl"),
   });
 
-  const { uniformsBindLayout, lightsBindLayout, textureBindLayout } = getBindGroupLayouts(device);
+  const { uniformsBindLayout, lightsBindLayout, textureBindLayout } =
+    getBindGroupLayouts(device);
 
   const renderPipeline = device.createRenderPipeline({
     vertex: {
       module: shaderModule,
-      entryPoint: 'vertex_main',
+      entryPoint: "vertex_main",
       buffers: VertexBufferLayout,
     },
     fragment: {
       module: shaderModule,
-      entryPoint: 'fragment_main',
+      entryPoint: "fragment_main",
       targets: [
         {
           format: canvasTextureFormat,
@@ -144,15 +163,15 @@ async function main() {
       ],
     },
     primitive: {
-      topology: 'triangle-list',
-      cullMode: 'back',
+      topology: "triangle-list",
+      cullMode: "back",
     },
     // Enable depth testing so that the fragment closest to the camera
     // is rendered in front.
     depthStencil: {
       depthWriteEnabled: true,
-      depthCompare: 'less',
-      format: 'depth24plus',
+      depthCompare: "less",
+      format: "depth24plus",
     },
     layout: device.createPipelineLayout({
       bindGroupLayouts: [
@@ -165,7 +184,7 @@ async function main() {
 
   const depthTexture = device.createTexture({
     size: [canvas.width, canvas.height],
-    format: 'depth24plus',
+    format: "depth24plus",
     usage: GPUTextureUsage.RENDER_ATTACHMENT,
   });
 
@@ -184,13 +203,21 @@ async function main() {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const cubeTexture = await loadImageTextureHDR(device, 'lulu.png', canvasTextureFormat);
+  const cubeTexture = await loadImageTextureHDR(
+    device,
+    "lulu.png",
+    canvasTextureFormat,
+  );
 
-  const grassTexture = await loadImageTexture(device, 'grass.jpg', canvasTextureFormat);
+  const grassTexture = await loadImageTexture(
+    device,
+    "grass.jpg",
+    canvasTextureFormat,
+  );
 
   const sampler = device.createSampler({
-    magFilter: 'linear',
-    minFilter: 'linear',
+    magFilter: "linear",
+    minFilter: "linear",
   });
 
   const uniformBindGroup = device.createBindGroup({
@@ -253,12 +280,15 @@ async function main() {
 
   const aspect = canvas.width / canvas.height;
 
-  mat4.perspective((2 * Math.PI) / 5, aspect, 1, 100.0, cameraUniform.projection);
+  mat4.perspective(
+    (2 * Math.PI) / 5,
+    aspect,
+    1,
+    100.0,
+    cameraUniform.projection,
+  );
 
-  /**
-   * @param {number} time
-   */
-  function updateCamera(time) {
+  function updateCamera(time: number) {
     const view = cameraUniform.view;
 
     const pos = vec3.fromValues(0, 0, -5);
@@ -269,19 +299,16 @@ async function main() {
     mat4.rotateY(view, time, view);
   }
 
-  /**
-   * @param {number} time
-   */
-  function updateUniforms(time) {
+  function updateUniforms(time: number) {
     memory.Float32.writeAt(new DataView(timeUniformData), 0, time);
   }
 
-  /**
-   * @param {number} time
-   */
-  function updateInstances(time) {
+  function updateInstances(time: number) {
     for (let i = 0; i < memory.count(Instance, CubeInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewAt(CubeInstanceData, i);
+      const { model, mvMatrix, normalMatrix } = Instance.viewAt(
+        CubeInstanceData,
+        i,
+      );
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
@@ -297,7 +324,10 @@ async function main() {
     }
 
     for (let i = 0; i < memory.count(Instance, PlaneInstanceData); i++) {
-      const { tint, model, mvMatrix, normalMatrix } = Instance.viewAt(PlaneInstanceData, i);
+      const { model, mvMatrix, normalMatrix } = Instance.viewAt(
+        PlaneInstanceData,
+        i,
+      );
 
       mat4.identity(mvMatrix);
       mat4.multiply(mvMatrix, cameraUniform.view, mvMatrix);
@@ -316,10 +346,7 @@ async function main() {
 
   const timingDisplay = new TimingValuesDisplay(document.body);
 
-  /**
-   * @param {DOMHighResTimeStamp} timestamp
-   */
-  function frame(timestamp) {
+  function frame(timestamp: DOMHighResTimeStamp) {
     timing.beginFrame(timestamp);
 
     const time = timestamp / 1000;
@@ -336,24 +363,21 @@ async function main() {
 
     const commandEncoder = device.createCommandEncoder();
 
-    /**
-     * @type {GPURenderPassDescriptor}
-     */
-    const renderPassDescriptor = {
+    const renderPassDescriptor: GPURenderPassDescriptor = {
       colorAttachments: [
         {
           clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
-          view: context.getCurrentTexture().createView()
+          loadOp: "clear",
+          storeOp: "store",
+          view: context.getCurrentTexture().createView(),
         },
       ],
       depthStencilAttachment: {
         view: depthTexture.createView(),
 
         depthClearValue: 1.0,
-        depthLoadOp: 'clear',
-        depthStoreOp: 'store',
+        depthLoadOp: "clear",
+        depthStoreOp: "store",
       },
       ...gpuTimingAdapter.getPassDescriptorMixin(),
     };
@@ -366,12 +390,18 @@ async function main() {
     passEncoder.setBindGroup(2, cubeTextureBindGroup);
     passEncoder.setVertexBuffer(0, cubeVertexBuffer);
     passEncoder.setVertexBuffer(1, cubeInstanceBuffer);
-    passEncoder.draw(memory.count(Vertex, CubeMeshData), memory.count(Instance, CubeInstanceData));
+    passEncoder.draw(
+      memory.count(Vertex, CubeMeshData),
+      memory.count(Instance, CubeInstanceData),
+    );
 
     passEncoder.setBindGroup(2, grassTextureBindGroup);
     passEncoder.setVertexBuffer(0, planeVertexBuffer);
     passEncoder.setVertexBuffer(1, planeInstanceBuffer);
-    passEncoder.draw(memory.count(Vertex, PlaneMeshData), memory.count(Instance, PlaneInstanceData));
+    passEncoder.draw(
+      memory.count(Vertex, PlaneMeshData),
+      memory.count(Instance, PlaneInstanceData),
+    );
 
     passEncoder.end();
     gpuTimingAdapter.trackPassEnd(commandEncoder);

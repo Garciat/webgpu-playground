@@ -1,4 +1,4 @@
-import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
 
 export const Vertex = new memory.Struct({
   position: { index: 0, type: memory.Vec4F },
@@ -25,7 +25,10 @@ export const CubeMesh = new memory.ArrayType(VertexQuad, 6);
 
 export const PlaneDivisions = 10;
 
-export const PlaneMesh = new memory.ArrayType(VertexQuad, PlaneDivisions * PlaneDivisions);
+export const PlaneMesh = new memory.ArrayType(
+  VertexQuad,
+  PlaneDivisions * PlaneDivisions,
+);
 
 export const CameraUniform = new memory.Struct({
   projection: { index: 0, type: memory.Mat4x4F },

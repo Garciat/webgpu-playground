@@ -1,4 +1,6 @@
-import * as memory from 'jsr:@garciat/wgpu-memory@1.0.8';
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
+
+import type { GPUTiming } from "./webgpu-timing.js";
 
 const StaticQuadVertWGSL = `
 @vertex
@@ -18,57 +20,30 @@ const Uniforms = new memory.Struct({
 });
 
 export class FullscreenFragmentArt {
-  /**
-   * @type {HTMLCanvasElement}
-   */
-  #canvas;
-  /**
-   * @type {GPUDevice}
-   */
-  #device;
-  /**
-   * @type {import('./webgpu-timing.js').GPUTiming}
-   */
-  #gpuTiming;
+  #canvas: HTMLCanvasElement;
+  #device: GPUDevice;
+  #gpuTiming: GPUTiming;
 
-  /**
-   * @type {number}
-   */
-  #pixelRatio;
+  #pixelRatio: number;
 
-  /**
-   * @type {GPURenderPipeline}
-   */
-  #pipeline;
+  #pipeline: GPURenderPipeline;
 
-  /**
-   * @type {GPUBuffer}
-   */
-  #uniformsBuffer;
-  /**
-   * @type {GPUBindGroup}
-   */
-  #uniformsBindGroup;
-  /**
-   * @type {ArrayBuffer}
-   */
-  #uniformsData;
+  #uniformsBuffer: GPUBuffer;
+  #uniformsBindGroup: GPUBindGroup;
+  #uniformsData: ArrayBuffer;
 
-  /**
-   * @param {{
-   *  canvas: HTMLCanvasElement,
-   *  device: GPUDevice,
-   *  canvasTextureFormat: GPUTextureFormat,
-   *  fragmentCode: string,
-   *  gpuTiming: import('./webgpu-timing.js').GPUTiming,
-   * }} _
-   */
   constructor({
     canvas,
     device,
     canvasTextureFormat,
     fragmentCode,
     gpuTiming,
+  }: {
+    canvas: HTMLCanvasElement;
+    device: GPUDevice;
+    canvasTextureFormat: GPUTextureFormat;
+    fragmentCode: string;
+    gpuTiming: GPUTiming;
   }) {
     this.#canvas = canvas;
     this.#device = device;
@@ -93,9 +68,9 @@ export class FullscreenFragmentArt {
         ],
       },
       primitive: {
-        topology: 'triangle-list',
+        topology: "triangle-list",
       },
-      layout: 'auto',
+      layout: "auto",
     });
 
     this.#uniformsData = memory.allocate(Uniforms);
@@ -123,39 +98,52 @@ export class FullscreenFragmentArt {
 
   #init() {
     this.#setResolution();
-    this.#setMousePositionClient(this.#canvas.clientWidth / 2, this.#canvas.clientHeight / 2);
+    this.#setMousePositionClient(
+      this.#canvas.clientWidth / 2,
+      this.#canvas.clientHeight / 2,
+    );
   }
 
   #setResolution() {
-    Uniforms.fields.resolution.write(new DataView(this.#uniformsData), [this.#canvas.width, this.#canvas.height, 0, 0]);
+    Uniforms.fields.resolution.write(new DataView(this.#uniformsData), [
+      this.#canvas.width,
+      this.#canvas.height,
+      0,
+      0,
+    ]);
   }
 
-  /**
-   * @param {number} x
-   * @param {number} y
-   */
-  #setMousePositionClient(x, y) {
-    Uniforms.fields.mouse.write(new DataView(this.#uniformsData), [x * this.#pixelRatio, y * this.#pixelRatio, 0, 0]);
+  #setMousePositionClient(x: number, y: number) {
+    Uniforms.fields.mouse.write(new DataView(this.#uniformsData), [
+      x * this.#pixelRatio,
+      y * this.#pixelRatio,
+      0,
+      0,
+    ]);
   }
 
   #attach() {
-    this.#canvas.addEventListener('pointerdown', ev => {
+    this.#canvas.addEventListener("pointerdown", (ev) => {
       ev.preventDefault();
     });
-    this.#canvas.addEventListener('pointermove', ev => {
+    this.#canvas.addEventListener("pointermove", (ev) => {
       this.#setMousePositionClient(ev.offsetX, ev.offsetY);
     });
   }
 
-  /**
-   * @param {DOMHighResTimeStamp} timestamp
-   * @param {GPUCommandEncoder} commandEncoder
-   * @param {GPUTextureView} textureView
-   */
-  render(timestamp, commandEncoder, textureView) {
+  render(
+    timestamp: DOMHighResTimeStamp,
+    commandEncoder: GPUCommandEncoder,
+    textureView: GPUTextureView,
+  ) {
     const time = timestamp / 1000;
 
-    Uniforms.fields.time.write(new DataView(this.#uniformsData), [time, 0, 0, 0]);
+    Uniforms.fields.time.write(new DataView(this.#uniformsData), [
+      time,
+      0,
+      0,
+      0,
+    ]);
 
     this.#device.queue.writeBuffer(this.#uniformsBuffer, 0, this.#uniformsData);
 
@@ -163,8 +151,8 @@ export class FullscreenFragmentArt {
       colorAttachments: [
         {
           clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-          loadOp: 'clear',
-          storeOp: 'store',
+          loadOp: "clear",
+          storeOp: "store",
           view: textureView,
         },
       ],

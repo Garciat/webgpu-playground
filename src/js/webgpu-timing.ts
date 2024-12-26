@@ -1,36 +1,20 @@
-import { Styles } from './display.js';
+/// <reference types="npm:@webgpu/types" />
+
+import { Styles } from "./display.ts";
 
 // Source: https://webgpufundamentals.org/webgpu/lessons/webgpu-timing.html
 
 export class RollingAverage {
-  /**
-   * @type {number}
-   */
-  #total = 0;
-
-  /**
-   * @type {number[]}
-   */
-  #samples = [];
-
-  /**
-   * @type {number}
-   */
-  #cursor = 0;
-
-  /**
-   * @type {number}
-   */
-  #numSamples;
+  #total: number = 0;
+  #samples: number[] = [];
+  #cursor: number = 0;
+  #numSamples: number;
 
   constructor(numSamples = 100) {
     this.#numSamples = numSamples;
   }
 
-  /**
-   * @param {number} v
-   */
-  addSample(v) {
+  addSample(v: number) {
     this.#total += v - (this.#samples[this.#cursor] || 0);
     this.#samples[this.#cursor] = v;
     this.#cursor = (this.#cursor + 1) % this.#numSamples;
@@ -41,57 +25,45 @@ export class RollingAverage {
   }
 }
 
-/**
- * @typedef {object} TimingValues
- * @property {number} fps
- * @property {number} js
- * @property {number} gpu
- */
+type TimingValues = {
+  fps: number;
+  js: number;
+  gpu: number;
+};
 
 export class TimingManager {
-  #fps;
-  #js;
-  #gpu;
+  #fps: RollingAverage;
+  #js: RollingAverage;
+  #gpu: RollingAverage;
 
   #lastFrameTimestamp = 0;
   #currentFrameTimestamp = 0;
   #frameStartTimestamp = 0;
 
-  /**
-   * @param {RollingAverage} fpsSummary
-   * @param {RollingAverage} jsSummary
-   * @param {RollingAverage} gpuSummary
-   */
   constructor(
-    fpsSummary,
-    jsSummary,
-    gpuSummary,
+    fpsSummary: RollingAverage,
+    jsSummary: RollingAverage,
+    gpuSummary: RollingAverage,
   ) {
     this.#fps = fpsSummary;
     this.#js = jsSummary;
     this.#gpu = gpuSummary;
   }
 
-  /**
-   * @param {DOMHighResTimeStamp} timestamp
-   */
-  beginFrame(timestamp) {
+  beginFrame(timestamp: DOMHighResTimeStamp) {
     this.#currentFrameTimestamp = timestamp;
     this.#frameStartTimestamp = performance.now();
   }
 
-  /**
-   * @param {Promise<number | undefined>} gpuTimePromise
-   * @returns {TimingValues}
-   */
-  endFrame(gpuTimePromise) {
+  endFrame(gpuTimePromise: Promise<number | undefined>): TimingValues {
     const frameEndTimestamp = performance.now();
     const jsTime = frameEndTimestamp - this.#frameStartTimestamp;
 
-    const frameTime = (this.#currentFrameTimestamp - this.#lastFrameTimestamp) / 1000;
+    const frameTime = (this.#currentFrameTimestamp - this.#lastFrameTimestamp) /
+      1000;
     this.#lastFrameTimestamp = this.#currentFrameTimestamp;
 
-    gpuTimePromise.then(gpuTime => {
+    gpuTimePromise.then((gpuTime) => {
       if (gpuTime !== undefined) {
         this.#gpu.addSample(gpuTime / 1000);
       }
@@ -110,110 +82,79 @@ export class TimingManager {
 
 export class TimingValuesDisplay {
   #style = {
-    contain: 'strict',
+    contain: "strict",
     width: CSS.em(8),
     height: CSS.em(3.5),
-    overflow: 'hidden',
-    position: 'absolute',
+    overflow: "hidden",
+    position: "absolute",
     top: 0,
     left: 0,
     margin: 0,
     padding: CSS.em(0.5),
-    'background-color': 'rgba(0, 0, 0, 0.8)',
-    color: 'white',
+    "background-color": "rgba(0, 0, 0, 0.8)",
+    color: "white",
   };
 
-  #element;
-  #textNode;
+  #element: HTMLElement;
+  #textNode: Text;
 
-  /**
-   * @param {HTMLElement} parent
-   */
-  constructor(parent) {
-    this.#element = document.createElement('pre');
+  constructor(parent: HTMLElement) {
+    this.#element = document.createElement("pre");
     Styles.set(this.#element, this.#style);
     parent.appendChild(this.#element);
 
-    this.#textNode = document.createTextNode('');
+    this.#textNode = document.createTextNode("");
     this.#element.appendChild(this.#textNode);
 
     // HACK
-    if (globalThis.location.hash.includes('timing=no')) {
-      this.#element.style.display = 'none';
+    if (globalThis.location.hash.includes("timing=no")) {
+      this.#element.style.display = "none";
     }
   }
 
-  /**
-   * @param {TimingValues} timingValues
-   */
-  display(timingValues) {
+  display(timingValues: TimingValues) {
     this.#textNode.nodeValue = `\
 fps: ${timingValues.fps.toFixed(1)}
 js: ${timingValues.js.toFixed(3)}ms
-gpu: ${isNaN(timingValues.gpu) ? 'N/A' : `${timingValues.gpu.toFixed(1)}µs`}
+gpu: ${isNaN(timingValues.gpu) ? "N/A" : `${timingValues.gpu.toFixed(1)}µs`}
 `;
   }
 }
 
-/**
- * @typedef {object} GPUTiming
- * @property {() => object} getPassDescriptorMixin
- * @property {(encoder: GPUCommandEncoder) => void} trackPassEnd
- * @property {() => Promise<number | undefined>} getResult
- */
+interface GPUTiming {
+  getPassDescriptorMixin(): Partial<GPURenderPassDescriptor>;
+  trackPassEnd(encoder: GPUCommandEncoder): void;
+  getResult(): Promise<number | undefined>;
+}
 
-/**
- * @param {GPUDevice} device
- * @returns {GPUTiming}
- */
-export function createGPUTimingAdapter(device) {
-  if (device.features.has('timestamp-query')) {
+export function createGPUTimingAdapter(device: GPUDevice): GPUTiming {
+  if (device.features.has("timestamp-query")) {
     return new GPUTimingAdapter(device);
   } else {
     return new GPUTimingNoop();
   }
 }
 
-/**
- * @implements {GPUTiming}
- */
-class GPUTimingNoop {
+class GPUTimingNoop implements GPUTiming {
   getPassDescriptorMixin() {
     return {};
   }
 
-  trackPassEnd() { }
+  trackPassEnd() {}
 
   getResult() {
     return Promise.resolve(NaN);
   }
 }
 
-/**
- * @implements {GPUTiming}
- */
-class GPUTimingAdapter {
-  /**
-   * @type {GPUQuerySet}
-   */
-  #querySet;
+class GPUTimingAdapter implements GPUTiming {
+  #querySet: GPUQuerySet;
+  #resolveBuffer: GPUBuffer;
+  #resultBuffer: GPUBuffer;
 
-  /**
-   * @type {GPUBuffer}
-   */
-  #resolveBuffer;
-
-  /**
-   * @type {GPUBuffer}
-   */
-  #resultBuffer;
-
-  /**
-   * @param {GPUDevice} device
-   */
-  constructor(device) {
+  constructor(device: GPUDevice) {
     this.#querySet = device.createQuerySet({
-      type: 'timestamp',
+      type: "timestamp",
       count: 2, // begin and end
     });
 
@@ -228,7 +169,7 @@ class GPUTimingAdapter {
     });
   }
 
-  getPassDescriptorMixin() {
+  getPassDescriptorMixin(): Partial<GPURenderPassDescriptor> {
     return {
       timestampWrites: {
         querySet: this.#querySet,
@@ -238,20 +179,29 @@ class GPUTimingAdapter {
     };
   }
 
-  /**
-   * @param {GPUCommandEncoder} encoder
-   */
-  trackPassEnd(encoder) {
-    encoder.resolveQuerySet(this.#querySet, 0, this.#querySet.count, this.#resolveBuffer, 0);
+  trackPassEnd(encoder: GPUCommandEncoder) {
+    encoder.resolveQuerySet(
+      this.#querySet,
+      0,
+      this.#querySet.count,
+      this.#resolveBuffer,
+      0,
+    );
 
-    if (this.#resultBuffer.mapState === 'unmapped') {
+    if (this.#resultBuffer.mapState === "unmapped") {
       // if unmapped, it is available for writing
-      encoder.copyBufferToBuffer(this.#resolveBuffer, 0, this.#resultBuffer, 0, this.#resultBuffer.size);
+      encoder.copyBufferToBuffer(
+        this.#resolveBuffer,
+        0,
+        this.#resultBuffer,
+        0,
+        this.#resultBuffer.size,
+      );
     }
   }
 
   async getResult() {
-    if (this.#resultBuffer.mapState === 'unmapped') {
+    if (this.#resultBuffer.mapState === "unmapped") {
       // if unmapped, it is available for mapping & reading
       const resultBuffer = this.#resultBuffer;
       await resultBuffer.mapAsync(GPUMapMode.READ);
