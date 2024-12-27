@@ -6,7 +6,9 @@ const site = lume({
   src: "./src",
 });
 
-site.use(jsx(/* Options */));
+site.use(jsx({
+  extensions: [".page.tsx", ".layout.tsx"],
+}));
 
 site.use(esbuild({
   extensions: [".ts", ".js"],
