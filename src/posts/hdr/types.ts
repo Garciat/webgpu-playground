@@ -1,4 +1,4 @@
-import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.14";
 
 export const Vertex = new memory.Struct({
   position: { index: 0, type: memory.Vec4F },

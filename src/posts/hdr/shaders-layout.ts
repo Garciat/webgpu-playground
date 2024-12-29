@@ -1,4 +1,4 @@
-import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.14";
 
 import { Instance, Vertex } from "./types.ts";
 

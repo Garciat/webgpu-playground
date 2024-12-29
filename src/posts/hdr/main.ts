@@ -1,6 +1,6 @@
 import { mat4, vec3 } from "npm:wgpu-matrix@3.3.0";
 
-import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
+import * as memory from "jsr:@garciat/wgpu-memory@1.0.14";
 
 import { downloadText } from "../../js/utils.ts";
 
