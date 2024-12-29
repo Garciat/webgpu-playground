@@ -1,6 +1,6 @@
 import * as memory from "jsr:@garciat/wgpu-memory@1.0.8";
 
-import type { GPUTiming } from "./webgpu-timing.js";
+import type { GPUTiming } from "./webgpu-timing.ts";
 
 const StaticQuadVertWGSL = `
 @vertex

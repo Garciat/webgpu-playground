@@ -121,7 +121,7 @@ gpu: ${isNaN(timingValues.gpu) ? "N/A" : `${timingValues.gpu.toFixed(1)}µs`}
   }
 }
 
-interface GPUTiming {
+export interface GPUTiming {
   getPassDescriptorMixin(): Partial<GPURenderPassDescriptor>;
   trackPassEnd(encoder: GPUCommandEncoder): void;
   getResult(): Promise<number | undefined>;
