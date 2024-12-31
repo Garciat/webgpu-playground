@@ -1,4 +1,4 @@
-import * as memory from "jsr:@garciat/wgpu-memory@1.0.14";
+import * as memory from "jsr:@garciat/wgpu-memory@1.2.2";
 
 import { CubeMesh } from "./types.ts";
 

@@ -1,4 +1,4 @@
-import * as memory from "jsr:@garciat/wgpu-memory@1.0.14";
+import * as memory from "jsr:@garciat/wgpu-memory@1.2.2";
 
 import type { GPUTiming } from "./webgpu-timing.ts";
 
@@ -13,7 +13,7 @@ fn main(@builtin(vertex_index) index : u32) -> @builtin(position) vec4f {
 }
 `;
 
-const Uniforms = new memory.Struct({
+const Uniforms = memory.StructOf({
   time: { index: 0, type: memory.Vec4F },
   resolution: { index: 1, type: memory.Vec4F },
   mouse: { index: 2, type: memory.Vec4F },
