@@ -59,11 +59,11 @@ async function main() {
   {
     const view = new DataView(forceData);
 
-    Force.fields.position.writeAt(view, 0, [200, 0]);
-    Force.fields.value.writeAt(view, 0, -1000);
+    Force.fields.position.writeAt(view, 0, [screenToWorldK(200), 0]);
+    Force.fields.value.writeAt(view, 0, screenToWorldK(-1000));
 
-    Force.fields.position.writeAt(view, 1, [-200, 0]);
-    Force.fields.value.writeAt(view, 1, 1000);
+    Force.fields.position.writeAt(view, 1, [screenToWorldK(-200), 0]);
+    Force.fields.value.writeAt(view, 1, screenToWorldK(1000));
   }
 
   const gpuComputeTimeKey = "gpu-compute" as const;
@@ -211,7 +211,7 @@ async function main() {
   const simulationParams = {
     deltaTime: 1,
     friction: 0.05,
-    forceCutOffRadius: 10,
+    forceCutOffRadius: screenToWorldK(10),
     forceCount: 2,
     particleCount: 0,
   };
@@ -323,7 +323,7 @@ async function main() {
 
           for (let i = 0; i < n; ++i) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 10 + Math.random() * 5;
+            const speed = screenToWorldK(5 + Math.random() * 5);
 
             const dx = Math.cos(angle) * speed;
             const dy = Math.sin(angle) * speed;
@@ -341,7 +341,7 @@ async function main() {
             Particle.fields.radius.writeAt(
               view,
               offset + i,
-              screenToWorldK(2 + Math.random() * 2),
+              screenToWorldK(2 + Math.random() * 4),
             );
           }
 
