@@ -17,6 +17,8 @@ export default (data: Lume.Data, h: Lume.Helpers) => {
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <link rel="stylesheet" href={h.url("/css/index.css")} />
+
+        <script type="module" src={h.url("/js/index.js")} defer />
       </head>
 
       <body>
@@ -26,6 +28,9 @@ export default (data: Lume.Data, h: Lume.Helpers) => {
               {data.title}
             </h1>
             <p>{data.description}</p>
+            <p class="no-webgpu" hidden={true}>
+              <strong>Note:</strong> Your browser does not support WebGPU.
+            </p>
           </header>
           <section>
             {posts.map((post) => (
