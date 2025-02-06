@@ -27,9 +27,11 @@ function createBufferFromData(
 }
 
 async function main() {
+  const pixelRatio = globalThis.devicePixelRatio;
+
   const { canvas } = Screen.setup(
     document.body,
-    globalThis.devicePixelRatio,
+    pixelRatio,
   );
 
   const { device, context, canvasTextureFormat } = await Screen.gpu(
@@ -40,23 +42,26 @@ async function main() {
     },
   );
 
-  const particleCountMax = Math.floor(
-    device.limits.maxStorageBufferBindingSize /
-      Particle.byteSize,
-  );
+  function screenToWorld([sx, sy]: [number, number]): [number, number] {
+    const wx = sx * pixelRatio - canvas.width / 2;
+    const wy = canvas.height / 2 - sy * pixelRatio;
+    return [wx, wy];
+  }
 
-  const particleCount = 10_000;
-  const particleData = memory.allocate(Particle, particleCount);
+  const particleCountMax = 1_000_000;
+
+  const particleCount = 0;
+  const particleData = memory.allocate(Particle, particleCountMax);
   {
     const view = new DataView(particleData);
 
     for (let i = 0; i < particleCount; ++i) {
-      const x = Math.random() * canvas.width - canvas.width / 2;
-      const y = Math.random() * canvas.height - canvas.height / 2;
+      const x = Math.random() * canvas.width;
+      const y = Math.random() * canvas.height;
 
       const a = Math.random() * 0.6 + 0.2;
 
-      Particle.fields.position.writeAt(view, i, [x, y]);
+      Particle.fields.position.writeAt(view, i, screenToWorld([x, y]));
       Particle.fields.velocity.writeAt(view, i, [0, 0]);
       Particle.fields.color.writeAt(view, i, [1 * a, 1 * a, 1 * a, a]);
     }
@@ -311,6 +316,50 @@ async function main() {
   function frame(timestamp: DOMHighResTimeStamp) {
     timing.beginFrame(timestamp);
 
+    // generate particles on pointer down
+    {
+      const view = new DataView(particleData);
+      const n = 10 + Math.ceil(Math.random() * 10);
+      let offset = 0;
+
+      for (const pointer of pointers.values()) {
+        if (pointer.isDown) {
+          const color = hslaToRgba([pointer.hue * 360, 1, 0.5, 1]);
+          const position = screenToWorld(pointer.position);
+
+          for (let i = 0; i < n; ++i) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 5 + Math.random() * 5;
+
+            const dx = Math.cos(angle) * speed;
+            const dy = Math.sin(angle) * speed;
+
+            const a = Math.random() * 0.4 + 0.4;
+
+            Particle.fields.position.writeAt(view, offset + i, position);
+            Particle.fields.velocity.writeAt(view, offset + i, [dx, dy]);
+            Particle.fields.color.writeAt(view, offset + i, [
+              color[0] * a,
+              color[1] * a,
+              color[2] * a,
+              a,
+            ]);
+          }
+
+          offset += n;
+        }
+      }
+
+      device.queue.writeBuffer(
+        particleBuffers[frameIndex % 2],
+        simulationParams.particleCount * Particle.byteSize,
+        particleData,
+        0,
+        offset * Particle.byteSize,
+      );
+      simulationParams.particleCount += offset;
+    }
+
     const commandEncoder = device.createCommandEncoder();
 
     // upload data
@@ -408,6 +457,94 @@ async function main() {
   }
 
   requestAnimationFrame(frame);
+
+  class PointerInfo {
+    id = 0;
+    position: [number, number] = [0, 0];
+    isDown = false;
+    hue = Math.random();
+  }
+
+  function newPointerFromEvent(event: PointerEvent): PointerInfo {
+    const pointer = new PointerInfo();
+    pointer.id = event.pointerId;
+    pointer.position = [event.offsetX, event.offsetY];
+    pointer.isDown = event.type === "pointerdown";
+    return pointer;
+  }
+
+  const pointers = new Map<number, PointerInfo>();
+
+  function getOrSetPointer(event: PointerEvent) {
+    let pointer = pointers.get(event.pointerId);
+    if (!pointer) {
+      pointer = newPointerFromEvent(event);
+      pointers.set(pointer.id, pointer);
+    }
+    return pointer;
+  }
+
+  canvas.addEventListener("pointerenter", (event) => {
+    getOrSetPointer(event);
+  });
+
+  canvas.addEventListener("pointerdown", (event) => {
+    const pointer = getOrSetPointer(event);
+    pointer.isDown = true;
+    pointer.hue = Math.random();
+  });
+
+  canvas.addEventListener("pointermove", (event) => {
+    const pointer = getOrSetPointer(event);
+    pointer.position = [event.offsetX, event.offsetY];
+  });
+
+  canvas.addEventListener("pointerup", (event) => {
+    const pointer = getOrSetPointer(event);
+    pointer.isDown = false;
+  });
+
+  canvas.addEventListener("pointercancel", (event) => {
+    pointers.delete(event.pointerId);
+  });
+
+  canvas.addEventListener("pointerleave", (event) => {
+    pointers.delete(event.pointerId);
+  });
 }
 
 await main();
+
+function hslaToRgba(
+  [h, s, l, a]: [number, number, number, number],
+): [number, number, number, number] {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0;
+  let g = 0;
+  let b = 0;
+
+  if (h < 60) {
+    r = c;
+    g = x;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+  } else if (h < 180) {
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+
+  return [r + m, g + m, b + m, a];
+}

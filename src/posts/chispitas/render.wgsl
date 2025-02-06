@@ -49,7 +49,7 @@ fn vertex_main(vertex : VertexIn) -> VertexOut
 fn fragment_main(frag : VertexOut) -> FragmentOut
 {
   var color = frag.color;
-  color.a = color.a * max(1.0 - length(frag.quad_pos), 0.0);
+  color.a = color.a * step(0.1, max(1.0 - length(frag.quad_pos), 0.0));
   var output : FragmentOut;
   output.color = color;
   return output;
