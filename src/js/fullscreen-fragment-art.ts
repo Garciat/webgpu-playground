@@ -1,4 +1,4 @@
-import * as memory from "jsr:@garciat/wgpu-memory@1.2.2";
+import * as memory from "jsr:@garciat/wgpu-memory@1.2.6";
 
 import type { GPUTiming } from "./webgpu-timing.ts";
 

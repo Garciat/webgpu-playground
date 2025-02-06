@@ -2,6 +2,7 @@
   "version": "4",
   "specifiers": {
     "jsr:@davidbonnet/astring@1.8.6": "1.8.6",
+    "jsr:@garciat/wgpu-memory@1.2.6": "1.2.2",
     "jsr:@std/cli@1.0.11": "1.0.11",
     "jsr:@std/cli@1.0.8": "1.0.8",
     "jsr:@std/cli@^1.0.8": "1.0.11",
@@ -57,6 +58,9 @@
   "jsr": {
     "@davidbonnet/astring@1.8.6": {
       "integrity": "98b4914c8863cdf8c0ff83bb5c528caa67a8dca6020ad6234113499f00583e3a"
+    },
+    "@garciat/wgpu-memory@1.2.6": {
+      "integrity": "6bdde2edce770d949d8d31c6db972d58829aa72881207cbad7ceb22562647aba"
     },
     "@std/cli@1.0.8": {
       "integrity": "3762d8dc9a373715c08d871c38d45e637b25266f013a1d0bbe560bca409de94e"
