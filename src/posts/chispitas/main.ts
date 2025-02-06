@@ -40,12 +40,17 @@ async function main() {
     },
   );
 
-  const ParticleCount = 10_000;
-  const ParticleData = memory.allocate(Particle, ParticleCount);
-  {
-    const view = new DataView(ParticleData);
+  const particleCountMax = Math.floor(
+    device.limits.maxStorageBufferBindingSize /
+      Particle.byteSize,
+  );
 
-    for (let i = 0; i < ParticleCount; ++i) {
+  const particleCount = 10_000;
+  const particleData = memory.allocate(Particle, particleCount);
+  {
+    const view = new DataView(particleData);
+
+    for (let i = 0; i < particleCount; ++i) {
       const x = Math.random() * canvas.width - canvas.width / 2;
       const y = Math.random() * canvas.height - canvas.height / 2;
 
@@ -57,9 +62,9 @@ async function main() {
     }
   }
 
-  const ForceData = memory.allocate(Force, 2);
+  const forceData = memory.allocate(Force, 2);
   {
-    const view = new DataView(ForceData);
+    const view = new DataView(forceData);
 
     Force.fields.position.writeAt(view, 0, [200, 0]);
     Force.fields.value.writeAt(view, 0, -1000);
@@ -209,6 +214,7 @@ async function main() {
     friction: 0.05,
     forceCutOffRadius: 10,
     forceCount: 2,
+    particleCount: particleCount,
   };
 
   const simulationParamsBuffer = device.createBuffer({
@@ -218,7 +224,7 @@ async function main() {
 
   const forceBuffer = createBufferFromData(
     device,
-    ForceData,
+    forceData,
     GPUBufferUsage.STORAGE,
   );
 
@@ -227,7 +233,7 @@ async function main() {
   for (let i = 0; i < 2; ++i) {
     particleBuffers[i] = createBufferFromData(
       device,
-      ParticleData,
+      particleData,
       GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
     );
   }
@@ -248,7 +254,7 @@ async function main() {
           resource: {
             buffer: forceBuffer,
             offset: 0,
-            size: ForceData.byteLength,
+            size: forceData.byteLength,
           },
         },
         {
@@ -256,7 +262,7 @@ async function main() {
           resource: {
             buffer: particleBuffers[i],
             offset: 0,
-            size: ParticleData.byteLength,
+            size: particleData.byteLength,
           },
         },
         {
@@ -264,7 +270,7 @@ async function main() {
           resource: {
             buffer: particleBuffers[(i + 1) % 2],
             offset: 0,
-            size: ParticleData.byteLength,
+            size: particleData.byteLength,
           },
         },
       ],
@@ -351,6 +357,11 @@ async function main() {
           0,
           simulationParams.forceCount,
         );
+        SimulationParams.fields.particleCount.writeAt(
+          view,
+          0,
+          simulationParams.particleCount,
+        );
       }
       device.queue.writeBuffer(
         simulationParamsBuffer,
@@ -366,7 +377,9 @@ async function main() {
       );
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[frameIndex % 2]);
-      passEncoder.dispatchWorkgroups(Math.ceil(ParticleCount / 64));
+      passEncoder.dispatchWorkgroups(
+        Math.ceil(simulationParams.particleCount / 64),
+      );
       passEncoder.end();
     }
 
@@ -380,7 +393,7 @@ async function main() {
       passEncoder.setBindGroup(0, renderUniformBindGroup);
       passEncoder.setVertexBuffer(0, particleBuffers[(frameIndex + 1) % 2]);
       passEncoder.setVertexBuffer(1, quadVertexBuffer);
-      passEncoder.draw(6, ParticleCount, 0, 0);
+      passEncoder.draw(6, simulationParams.particleCount, 0, 0);
       passEncoder.end();
     }
 

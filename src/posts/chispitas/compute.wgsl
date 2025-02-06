@@ -3,6 +3,7 @@ struct SimulationParams {
   friction : f32,
   forceCutOffRadius : f32,
   forceCount : u32,
+  particleCount : u32,
 }
 struct Particle {
   position : vec2<f32>,
@@ -22,6 +23,9 @@ struct Force {
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
   var index = GlobalInvocationID.x;
+  if (index >= simulation_params.particleCount) {
+    return;
+  }
 
   var particle = particlesA[index];
 
