@@ -31,6 +31,10 @@ export class FullscreenFragmentArt {
   #uniformsBuffer: GPUBuffer;
   #uniformsBindGroup: GPUBindGroup;
   #uniformsData: ArrayBuffer;
+  #uniformsDataView: DataView;
+
+  #renderCanvasAttachment: GPURenderPassColorAttachment;
+  #renderPassDescriptor: GPURenderPassDescriptor;
 
   constructor({
     canvas,
@@ -74,6 +78,7 @@ export class FullscreenFragmentArt {
     });
 
     this.#uniformsData = memory.allocate(Uniforms);
+    this.#uniformsDataView = new DataView(this.#uniformsData);
 
     this.#uniformsBuffer = device.createBuffer({
       size: this.#uniformsData.byteLength,
@@ -92,12 +97,24 @@ export class FullscreenFragmentArt {
       ],
     });
 
+    this.#renderCanvasAttachment = {
+      clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+      loadOp: "clear",
+      storeOp: "store",
+      view: undefined as unknown as GPUTextureView, // Assigned later
+    };
+    this.#renderPassDescriptor = {
+      colorAttachments: [
+        this.#renderCanvasAttachment,
+      ],
+      ...this.#gpuTiming.getPassDescriptorMixin("gpu"),
+    };
+
     this.#init();
     this.#attach();
   }
 
   #init() {
-    this.#setResolution();
     this.#setMousePositionClient(
       this.#canvas.clientWidth / 2,
       this.#canvas.clientHeight / 2,
@@ -105,7 +122,7 @@ export class FullscreenFragmentArt {
   }
 
   #setResolution() {
-    Uniforms.fields.resolution.write(new DataView(this.#uniformsData), [
+    Uniforms.fields.resolution.write(this.#uniformsDataView, [
       this.#canvas.width,
       this.#canvas.height,
       0,
@@ -114,7 +131,7 @@ export class FullscreenFragmentArt {
   }
 
   #setMousePositionClient(x: number, y: number) {
-    Uniforms.fields.mouse.write(new DataView(this.#uniformsData), [
+    Uniforms.fields.mouse.write(this.#uniformsDataView, [
       x * this.#pixelRatio,
       y * this.#pixelRatio,
       0,
@@ -138,32 +155,27 @@ export class FullscreenFragmentArt {
   ) {
     const time = timestamp / 1000;
 
-    Uniforms.fields.time.write(new DataView(this.#uniformsData), [
+    Uniforms.fields.time.write(this.#uniformsDataView, [
       time,
       0,
       0,
       0,
     ]);
+    this.#setResolution();
 
     this.#device.queue.writeBuffer(this.#uniformsBuffer, 0, this.#uniformsData);
 
-    const passEncoder = commandEncoder.beginRenderPass({
-      colorAttachments: [
-        {
-          clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-          loadOp: "clear",
-          storeOp: "store",
-          view: textureView,
-        },
-      ],
-      ...this.#gpuTiming.getPassDescriptorMixin("gpu"),
-    });
+    this.#renderCanvasAttachment.view = textureView;
+
+    const passEncoder = commandEncoder.beginRenderPass(
+      this.#renderPassDescriptor,
+    );
 
     passEncoder.setPipeline(this.#pipeline);
     passEncoder.setBindGroup(0, this.#uniformsBindGroup);
     passEncoder.draw(6);
-
     passEncoder.end();
+
     this.#gpuTiming.trackPassEnd(commandEncoder);
   }
 
