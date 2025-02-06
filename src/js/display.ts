@@ -1,5 +1,7 @@
 /// <reference types="npm:@webgpu/types" />
 
+import { isEmbedded } from "./utils.ts";
+
 export class Styles {
   static set(
     element: HTMLElement,
@@ -73,6 +75,9 @@ export class Screen {
     canvasTextureFormat: GPUTextureFormat;
   }> {
     if (!navigatorGPU) {
+      if (!isEmbedded()) {
+        alert("Your browser does not support WebGPU.");
+      }
       throw Error("WebGPU not supported");
     }
 

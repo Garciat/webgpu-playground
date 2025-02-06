@@ -1,6 +1,7 @@
 /// <reference types="npm:@webgpu/types" />
 
 import { Styles } from "./display.ts";
+import { isEmbedded } from "./utils.ts";
 
 // Source: https://webgpufundamentals.org/webgpu/lessons/webgpu-timing.html
 
@@ -112,7 +113,7 @@ export class TimingValuesDisplay {
     this.#element.appendChild(this.#textNode);
 
     // HACK
-    if (globalThis.location.hash.includes("timing=no")) {
+    if (isEmbedded()) {
       this.#element.style.display = "none";
     }
   }

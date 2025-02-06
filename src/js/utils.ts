@@ -16,3 +16,7 @@ export function assert(
     throw Error(message);
   }
 }
+
+export function isEmbedded(): boolean {
+  return globalThis.location.hash === "#embedded";
+}

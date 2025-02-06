@@ -38,7 +38,7 @@ export default (data: Lume.Data, h: Lume.Helpers) => {
                 <header>
                   <h2>{post.title}</h2>
                 </header>
-                <iframe src={h.url(post.url) + "#timing=no"}></iframe>
+                <iframe src={h.url(post.url) + "#embedded"}></iframe>
                 <footer>
                   <a href={h.url(post.url)}>Open</a>
                 </footer>
