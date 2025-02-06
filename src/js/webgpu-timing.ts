@@ -16,6 +16,9 @@ export class RollingAverage {
   }
 
   addSample(v: number) {
+    if (isNaN(v) || !isFinite(v)) {
+      return;
+    }
     this.#total += v - (this.#samples[this.#cursor] || 0);
     this.#samples[this.#cursor] = v;
     this.#cursor = (this.#cursor + 1) % this.#numSamples;

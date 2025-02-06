@@ -29,6 +29,7 @@ export class Screen {
       margin: 0,
       width: CSS.percent(100),
       height: CSS.percent(100),
+      overflow: "hidden",
       display: "flex",
       "place-content": "center center",
       "background-color": "black",

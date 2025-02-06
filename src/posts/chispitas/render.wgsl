@@ -1,16 +1,16 @@
 struct RenderParams {
   resolution : vec2f,
-  particleSizePx : f32,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
 
 const LocParticle = 0;
-const LocQuad = LocParticle + 3;
+const LocQuad = LocParticle + 4;
 struct VertexIn {
   @location(LocParticle+0) position : vec2f,
   @location(LocParticle+1) velocity : vec2f,
   @location(LocParticle+2) color : vec4f,
+  @location(LocParticle+3) radius : f32,
   @location(LocQuad+0) quad_pos : vec2f,
 }
 
@@ -36,7 +36,7 @@ fn vertex_main(vertex : VertexIn) -> VertexOut
   // position in clip space
   let position = vertex.position / (render_params.resolution/2);
 
-  let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * render_params.particleSizePx * pixel_scale;
+  let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * vertex.radius * pixel_scale;
 
   var output : VertexOut;
   output.position = vec4f(position + sprite, 0, 1);

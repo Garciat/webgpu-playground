@@ -42,30 +42,18 @@ async function main() {
     },
   );
 
-  function screenToWorld([sx, sy]: [number, number]): [number, number] {
+  function screenToWorldK(k: number): number {
+    return k * pixelRatio;
+  }
+
+  function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
     const wx = sx * pixelRatio - canvas.width / 2;
     const wy = canvas.height / 2 - sy * pixelRatio;
     return [wx, wy];
   }
 
   const particleCountMax = 1_000_000;
-
-  const particleCount = 0;
   const particleData = memory.allocate(Particle, particleCountMax);
-  {
-    const view = new DataView(particleData);
-
-    for (let i = 0; i < particleCount; ++i) {
-      const x = Math.random() * canvas.width;
-      const y = Math.random() * canvas.height;
-
-      const a = Math.random() * 0.6 + 0.2;
-
-      Particle.fields.position.writeAt(view, i, screenToWorld([x, y]));
-      Particle.fields.velocity.writeAt(view, i, [0, 0]);
-      Particle.fields.color.writeAt(view, i, [1 * a, 1 * a, 1 * a, a]);
-    }
-  }
 
   const forceData = memory.allocate(Force, 2);
   {
@@ -103,7 +91,7 @@ async function main() {
   quadVertexBuffer.unmap();
 
   const LocParticle = 0;
-  const LocVertex = LocParticle + 3;
+  const LocVertex = LocParticle + 4;
 
   const renderPipeline = device.createRenderPipeline({
     layout: "auto",
@@ -131,6 +119,12 @@ async function main() {
               shaderLocation: LocParticle + 2,
               offset: Particle.fields.color.offset,
               format: "float32x4",
+            },
+            // radius
+            {
+              shaderLocation: LocParticle + 3,
+              offset: Particle.fields.radius.offset,
+              format: "float32",
             },
           ],
           arrayStride: Particle.byteSize,
@@ -219,7 +213,7 @@ async function main() {
     friction: 0.05,
     forceCutOffRadius: 10,
     forceCount: 2,
-    particleCount: particleCount,
+    particleCount: 0,
   };
 
   const simulationParamsBuffer = device.createBuffer({
@@ -319,17 +313,17 @@ async function main() {
     // generate particles on pointer down
     {
       const view = new DataView(particleData);
-      const n = 10 + Math.ceil(Math.random() * 10);
+      const n = 20;
       let offset = 0;
 
       for (const pointer of pointers.values()) {
         if (pointer.isDown) {
           const color = hslaToRgba([pointer.hue * 360, 1, 0.5, 1]);
-          const position = screenToWorld(pointer.position);
+          const position = screenToWorldXY(pointer.position);
 
           for (let i = 0; i < n; ++i) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = 5 + Math.random() * 5;
+            const speed = 10 + Math.random() * 5;
 
             const dx = Math.cos(angle) * speed;
             const dy = Math.sin(angle) * speed;
@@ -344,6 +338,11 @@ async function main() {
               color[2] * a,
               a,
             ]);
+            Particle.fields.radius.writeAt(
+              view,
+              offset + i,
+              screenToWorldK(2 + Math.random() * 2),
+            );
           }
 
           offset += n;
