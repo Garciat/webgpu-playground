@@ -49,9 +49,11 @@ async function main() {
       const x = Math.random() * canvas.width - canvas.width / 2;
       const y = Math.random() * canvas.height - canvas.height / 2;
 
+      const a = Math.random() * 0.6 + 0.2;
+
       Particle.fields.position.writeAt(view, i, [x, y]);
       Particle.fields.velocity.writeAt(view, i, [0, 0]);
-      Particle.fields.color.writeAt(view, i, [1, 0, 0, 1]);
+      Particle.fields.color.writeAt(view, i, [1 * a, 1 * a, 1 * a, a]);
     }
   }
 
@@ -162,6 +164,18 @@ async function main() {
       topology: "triangle-list",
     },
   });
+
+  const renderParams = {
+    resolution: {
+      get x() {
+        return canvas.width;
+      },
+      get y() {
+        return canvas.height;
+      },
+    },
+    particleSizePx: 5,
+  };
 
   const renderParamsBuffer = device.createBuffer({
     size: RenderParams.byteSize,
@@ -298,9 +312,14 @@ async function main() {
       {
         const view = new DataView(renderParamsData);
         RenderParams.fields.resolution.writeAt(view, 0, [
-          canvas.width,
-          canvas.height,
+          renderParams.resolution.x,
+          renderParams.resolution.y,
         ]);
+        RenderParams.fields.particleSizePx.writeAt(
+          view,
+          0,
+          renderParams.particleSizePx,
+        );
       }
       device.queue.writeBuffer(
         renderParamsBuffer,

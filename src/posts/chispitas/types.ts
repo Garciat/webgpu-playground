@@ -13,6 +13,7 @@ export const Force = memory.StructOf({
 
 export const RenderParams = memory.StructOf({
   resolution: { index: 0, type: memory.Vec2F },
+  particleSizePx: { index: 1, type: memory.Float32 },
 });
 
 export const SimulationParams = memory.StructOf({

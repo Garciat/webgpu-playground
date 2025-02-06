@@ -1,5 +1,6 @@
 struct RenderParams {
   resolution : vec2f,
+  particleSizePx : f32,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
@@ -26,8 +27,6 @@ struct FragmentOut {
   @location(0) color : vec4f,
 }
 
-const sprite_size_px = 5;
-
 @vertex
 fn vertex_main(vertex : VertexIn) -> VertexOut
 {
@@ -37,7 +36,7 @@ fn vertex_main(vertex : VertexIn) -> VertexOut
   // position in clip space
   let position = vertex.position / (render_params.resolution/2);
 
-  let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * sprite_size_px * pixel_scale;
+  let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * render_params.particleSizePx * pixel_scale;
 
   var output : VertexOut;
   output.position = vec4f(position + sprite, 0, 1);
