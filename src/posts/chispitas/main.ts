@@ -11,7 +11,7 @@ import {
 
 import { Screen } from "../../js/display.ts";
 
-import { Force, Particle, RenderParams } from "./types.ts";
+import { Force, Particle, RenderParams, SimulationParams } from "./types.ts";
 
 function createBufferFromData(
   device: GPUDevice,
@@ -190,6 +190,17 @@ async function main() {
     },
   });
 
+  const simulationParams = {
+    deltaTime: 1,
+    friction: 0.05,
+    forceCutOffRadius: 10,
+  };
+
+  const simulationParamsBuffer = device.createBuffer({
+    size: SimulationParams.byteSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
   const forceBuffer = createBufferFromData(
     device,
     ForceData,
@@ -214,13 +225,19 @@ async function main() {
         {
           binding: 0,
           resource: {
+            buffer: simulationParamsBuffer,
+          },
+        },
+        {
+          binding: 1,
+          resource: {
             buffer: forceBuffer,
             offset: 0,
             size: ForceData.byteLength,
           },
         },
         {
-          binding: 1,
+          binding: 2,
           resource: {
             buffer: particleBuffers[i],
             offset: 0,
@@ -228,7 +245,7 @@ async function main() {
           },
         },
         {
-          binding: 2,
+          binding: 3,
           resource: {
             buffer: particleBuffers[(i + 1) % 2],
             offset: 0,
@@ -278,15 +295,42 @@ async function main() {
     // upload data
     {
       const renderParamsData = memory.allocate(RenderParams, 1);
-      const view = new DataView(renderParamsData);
-      RenderParams.fields.resolution.writeAt(view, 0, [
-        canvas.width,
-        canvas.height,
-      ]);
+      {
+        const view = new DataView(renderParamsData);
+        RenderParams.fields.resolution.writeAt(view, 0, [
+          canvas.width,
+          canvas.height,
+        ]);
+      }
       device.queue.writeBuffer(
         renderParamsBuffer,
         0,
         renderParamsData,
+      );
+
+      const simulationParamsData = memory.allocate(SimulationParams, 1);
+      {
+        const view = new DataView(simulationParamsData);
+        SimulationParams.fields.deltaTime.writeAt(
+          view,
+          0,
+          simulationParams.deltaTime,
+        );
+        SimulationParams.fields.friction.writeAt(
+          view,
+          0,
+          simulationParams.friction,
+        );
+        SimulationParams.fields.forceCutOffRadius.writeAt(
+          view,
+          0,
+          simulationParams.forceCutOffRadius,
+        );
+      }
+      device.queue.writeBuffer(
+        simulationParamsBuffer,
+        0,
+        simulationParamsData,
       );
     }
 
