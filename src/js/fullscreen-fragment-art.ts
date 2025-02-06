@@ -22,7 +22,7 @@ const Uniforms = memory.StructOf({
 export class FullscreenFragmentArt {
   #canvas: HTMLCanvasElement;
   #device: GPUDevice;
-  #gpuTiming: GPUTiming;
+  #gpuTiming: GPUTiming<{ gpu: Record<string, never> }>;
 
   #pixelRatio: number;
 
@@ -43,7 +43,7 @@ export class FullscreenFragmentArt {
     device: GPUDevice;
     canvasTextureFormat: GPUTextureFormat;
     fragmentCode: string;
-    gpuTiming: GPUTiming;
+    gpuTiming: GPUTiming<{ gpu: Record<string, never> }>;
   }) {
     this.#canvas = canvas;
     this.#device = device;
@@ -156,7 +156,7 @@ export class FullscreenFragmentArt {
           view: textureView,
         },
       ],
-      ...this.#gpuTiming.getPassDescriptorMixin(),
+      ...this.#gpuTiming.getPassDescriptorMixin("gpu"),
     });
 
     passEncoder.setPipeline(this.#pipeline);

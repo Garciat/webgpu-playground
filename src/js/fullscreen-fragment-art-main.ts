@@ -29,13 +29,13 @@ export async function main({ fragmentCode }: { fragmentCode: string }) {
     device,
     canvasTextureFormat,
     fragmentCode,
-    gpuTiming: createGPUTimingAdapter(device),
+    gpuTiming: createGPUTimingAdapter(device, { "gpu": {} }),
   });
 
   const timing = new TimingManager(
     new RollingAverage(),
     new RollingAverage(),
-    new RollingAverage(),
+    { gpu: new RollingAverage() },
   );
 
   const timingDisplay = new TimingValuesDisplay(document.body);

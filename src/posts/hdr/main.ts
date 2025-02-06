@@ -110,7 +110,7 @@ async function main() {
     },
   );
 
-  const gpuTimingAdapter = createGPUTimingAdapter(device);
+  const gpuTimingAdapter = createGPUTimingAdapter(device, { "gpu": {} });
 
   const cubeVertexBuffer = createBufferFromData(
     device,
@@ -341,7 +341,7 @@ async function main() {
   const timing = new TimingManager(
     new RollingAverage(),
     new RollingAverage(),
-    new RollingAverage(),
+    { gpu: new RollingAverage() },
   );
 
   const timingDisplay = new TimingValuesDisplay(document.body);
@@ -379,7 +379,7 @@ async function main() {
         depthLoadOp: "clear",
         depthStoreOp: "store",
       },
-      ...gpuTimingAdapter.getPassDescriptorMixin(),
+      ...gpuTimingAdapter.getPassDescriptorMixin("gpu"),
     };
 
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);

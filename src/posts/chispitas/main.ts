@@ -68,7 +68,13 @@ async function main() {
     },
   );
 
-  const gpuTimingAdapter = createGPUTimingAdapter(device);
+  const gpuComputeTimeKey = "gpu-compute" as const;
+  const gpuRenderTimeKey = "gpu-render" as const;
+
+  const gpuTimingAdapter = createGPUTimingAdapter(device, {
+    [gpuComputeTimeKey]: {},
+    [gpuRenderTimeKey]: {},
+  });
 
   const renderModule = device.createShaderModule({
     code: await downloadText(import.meta.resolve("./render.wgsl")),
@@ -188,10 +194,31 @@ async function main() {
   const timing = new TimingManager(
     new RollingAverage(),
     new RollingAverage(),
-    new RollingAverage(),
+    {
+      [gpuComputeTimeKey]: new RollingAverage(),
+      [gpuRenderTimeKey]: new RollingAverage(),
+    },
   );
 
   const timingDisplay = new TimingValuesDisplay(document.body);
+
+  const computePassDescriptor = {
+    ...gpuTimingAdapter.getPassDescriptorMixin(gpuComputeTimeKey),
+  };
+
+  const renderPassColorAttachment: GPURenderPassColorAttachment = {
+    clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
+    loadOp: "clear" as const,
+    storeOp: "store" as const,
+    view: context.getCurrentTexture().createView(), // reset on each frame
+  };
+
+  const renderPassDescriptor = {
+    colorAttachments: [
+      renderPassColorAttachment,
+    ],
+    ...gpuTimingAdapter.getPassDescriptorMixin(gpuRenderTimeKey),
+  };
 
   let frameIndex = 0;
 
@@ -202,7 +229,9 @@ async function main() {
 
     // compute pass
     {
-      const passEncoder = commandEncoder.beginComputePass();
+      const passEncoder = commandEncoder.beginComputePass(
+        computePassDescriptor,
+      );
       passEncoder.setPipeline(computePipeline);
       passEncoder.setBindGroup(0, particleBindGroups[frameIndex % 2]);
       passEncoder.dispatchWorkgroups(Math.ceil(ParticleCount / 64));
@@ -211,29 +240,18 @@ async function main() {
 
     // render pass
     {
-      const passEncoder = commandEncoder.beginRenderPass({
-        colorAttachments: [
-          {
-            clearValue: { r: 0, g: 0, b: 0, a: 1.0 },
-            loadOp: "clear",
-            storeOp: "store",
-            view: context.getCurrentTexture().createView(),
-          },
-        ],
-        ...gpuTimingAdapter.getPassDescriptorMixin(),
-      });
+      renderPassColorAttachment.view = context.getCurrentTexture().createView();
+
+      const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
       passEncoder.setPipeline(renderPipeline);
       passEncoder.setVertexBuffer(0, particleBuffers[(frameIndex + 1) % 2]);
-      passEncoder.draw(
-        memory.count(Particle, ParticleData),
-      );
-
+      passEncoder.draw(ParticleCount);
       passEncoder.end();
-      gpuTimingAdapter.trackPassEnd(commandEncoder);
-
-      device.queue.submit([commandEncoder.finish()]);
     }
+
+    gpuTimingAdapter.trackPassEnd(commandEncoder);
+    device.queue.submit([commandEncoder.finish()]);
 
     const timingValues = timing.endFrame(gpuTimingAdapter.getResult());
     timingDisplay.display(timingValues);

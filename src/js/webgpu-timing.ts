@@ -28,13 +28,13 @@ export class RollingAverage {
 type TimingValues = {
   fps: number;
   js: number;
-  gpu: number;
+  gpu: Record<string, number>;
 };
 
-export class TimingManager {
+export class TimingManager<Descriptor extends GPUTimingDescriptor> {
   #fps: RollingAverage;
   #js: RollingAverage;
-  #gpu: RollingAverage;
+  #gpu: { [Name in keyof Descriptor]: RollingAverage };
 
   #lastFrameTimestamp = 0;
   #currentFrameTimestamp = 0;
@@ -43,7 +43,7 @@ export class TimingManager {
   constructor(
     fpsSummary: RollingAverage,
     jsSummary: RollingAverage,
-    gpuSummary: RollingAverage,
+    gpuSummary: { [Name in keyof Descriptor]: RollingAverage },
   ) {
     this.#fps = fpsSummary;
     this.#js = jsSummary;
@@ -55,7 +55,9 @@ export class TimingManager {
     this.#frameStartTimestamp = performance.now();
   }
 
-  endFrame(gpuTimePromise: Promise<number | undefined>): TimingValues {
+  endFrame(
+    gpuTimePromise: Promise<Record<string, number> | undefined>,
+  ): TimingValues {
     const frameEndTimestamp = performance.now();
     const jsTime = frameEndTimestamp - this.#frameStartTimestamp;
 
@@ -65,7 +67,9 @@ export class TimingManager {
 
     gpuTimePromise.then((gpuTime) => {
       if (gpuTime !== undefined) {
-        this.#gpu.addSample(gpuTime / 1000);
+        for (const name in gpuTime) {
+          this.#gpu[name].addSample(gpuTime[name] / 1000);
+        }
       }
     });
 
@@ -75,24 +79,25 @@ export class TimingManager {
     return {
       fps: this.#fps.get(),
       js: this.#js.get(),
-      gpu: this.#gpu.get(),
+      gpu: mapObjectValues(this.#gpu, (average) => average.get()),
     };
   }
 }
 
 export class TimingValuesDisplay {
   #style = {
-    contain: "strict",
-    width: CSS.em(8),
-    height: CSS.em(3.5),
+    // contain: "strict",
+    // width: CSS.em(8),
+    // height: CSS.em(3.5),
     overflow: "hidden",
     position: "absolute",
     top: 0,
     left: 0,
     margin: 0,
     padding: CSS.em(0.5),
-    "background-color": "rgba(0, 0, 0, 0.8)",
+    "background-color": "rgba(0, 0, 0, 1)",
     color: "white",
+    "font-size": "10px",
   };
 
   #element: HTMLElement;
@@ -116,26 +121,50 @@ export class TimingValuesDisplay {
     this.#textNode.nodeValue = `\
 fps: ${timingValues.fps.toFixed(1)}
 js: ${timingValues.js.toFixed(3)}ms
-gpu: ${isNaN(timingValues.gpu) ? "N/A" : `${timingValues.gpu.toFixed(1)}µs`}
+${this.formatGPUTimes(timingValues.gpu)}
 `;
   }
-}
 
-export interface GPUTiming {
-  getPassDescriptorMixin(): Partial<GPURenderPassDescriptor>;
-  trackPassEnd(encoder: GPUCommandEncoder): void;
-  getResult(): Promise<number | undefined>;
-}
-
-export function createGPUTimingAdapter(device: GPUDevice): GPUTiming {
-  if (device.features.has("timestamp-query")) {
-    return new GPUTimingAdapter(device);
-  } else {
-    return new GPUTimingNoop();
+  formatGPUTimes(times: Record<string, number>) {
+    return Object.entries(times).map(([key, time]) =>
+      `${key}: ${isNaN(time) ? "N/A" : `${time.toFixed(1)}µs`}`
+    ).join("\n");
   }
 }
 
-class GPUTimingNoop implements GPUTiming {
+export type GPUTimingDescriptor = {
+  [Name in string]: Record<string, never>;
+};
+
+export interface GPUTiming<Descriptor extends GPUTimingDescriptor> {
+  getPassDescriptorMixin(
+    name: keyof Descriptor,
+  ): Partial<GPURenderPassDescriptor>;
+  trackPassEnd(encoder: GPUCommandEncoder): void;
+  getResult(): Promise<{ [Name in keyof Descriptor]: number } | undefined>;
+}
+
+export function createGPUTimingAdapter<Descriptor extends GPUTimingDescriptor>(
+  device: GPUDevice,
+  descriptor: Descriptor,
+): GPUTiming<Descriptor> {
+  if (device.features.has("timestamp-query")) {
+    return new GPUTimingAdapter(descriptor, device);
+  } else {
+    return new GPUTimingNoop(descriptor);
+  }
+}
+
+class GPUTimingNoop<Descriptor extends GPUTimingDescriptor>
+  implements GPUTiming<Descriptor> {
+  #descriptor: Descriptor;
+  #empty: { [Name in keyof Descriptor]: number };
+
+  constructor(descriptor: Descriptor) {
+    this.#descriptor = descriptor;
+    this.#empty = mapObjectValues(descriptor, () => NaN);
+  }
+
   getPassDescriptorMixin() {
     return {};
   }
@@ -143,19 +172,26 @@ class GPUTimingNoop implements GPUTiming {
   trackPassEnd() {}
 
   getResult() {
-    return Promise.resolve(NaN);
+    return Promise.resolve(this.#empty);
   }
 }
 
-class GPUTimingAdapter implements GPUTiming {
+class GPUTimingAdapter<Descriptor extends GPUTimingDescriptor>
+  implements GPUTiming<Descriptor> {
+  #indices: { [Name in keyof Descriptor]: number };
   #querySet: GPUQuerySet;
   #resolveBuffer: GPUBuffer;
   #resultBuffer: GPUBuffer;
 
-  constructor(device: GPUDevice) {
+  constructor(descriptor: Descriptor, device: GPUDevice) {
+    const count = Object.keys(descriptor).length;
+
+    let index = 0;
+    this.#indices = mapObjectValues(descriptor, () => 2 * index++);
+
     this.#querySet = device.createQuerySet({
       type: "timestamp",
-      count: 2, // begin and end
+      count: 2 * count, // begin and end
     });
 
     this.#resolveBuffer = device.createBuffer({
@@ -169,12 +205,15 @@ class GPUTimingAdapter implements GPUTiming {
     });
   }
 
-  getPassDescriptorMixin(): Partial<GPURenderPassDescriptor> {
+  getPassDescriptorMixin(
+    name: keyof Descriptor,
+  ): Partial<GPURenderPassDescriptor> {
+    const index = this.#indices[name];
     return {
       timestampWrites: {
         querySet: this.#querySet,
-        beginningOfPassWriteIndex: 0,
-        endOfPassWriteIndex: 1,
+        beginningOfPassWriteIndex: index,
+        endOfPassWriteIndex: index + 1,
       },
     };
   }
@@ -206,12 +245,33 @@ class GPUTimingAdapter implements GPUTiming {
       const resultBuffer = this.#resultBuffer;
       await resultBuffer.mapAsync(GPUMapMode.READ);
       const times = new BigInt64Array(resultBuffer.getMappedRange());
-      const duration = Number(times[1] - times[0]);
+      const result = mapObjectValues(this.#indices, (index) => {
+        const begin = times[index];
+        const end = times[index + 1];
+        return Number(end - begin);
+      });
       resultBuffer.unmap(); // eventual
-      return duration;
+      return result;
     } else {
       // cannot read yet
       return undefined;
     }
   }
 }
+
+function mapObjectValues<
+  T extends { [Key in keyof T]: V },
+  R,
+  V = ObjectValues<T>,
+>(
+  input: T,
+  fn: (value: V) => R,
+): { [Key in keyof T]: R } {
+  const result = {} as { [Key in keyof T]: R };
+  for (const key in input) {
+    result[key] = fn(input[key]);
+  }
+  return result;
+}
+
+type ObjectValues<T> = T[keyof T];
