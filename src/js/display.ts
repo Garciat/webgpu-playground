@@ -29,25 +29,34 @@ export class Screen {
       height: CSS.percent(100),
       display: "flex",
       "place-content": "center center",
+      "background-color": "black",
+    });
+
+    const canvas = document.createElement("canvas");
+    Styles.set(canvas, {
+      width: CSS.percent(100),
+      height: CSS.percent(100),
+      "touch-action": "none",
     });
 
     const displayW = body.clientWidth;
     const displayH = body.clientHeight;
 
-    const canvas = document.createElement("canvas");
-    Styles.set(canvas, {
-      width: CSS.px(displayW),
-      height: CSS.px(displayH),
-      "touch-action": "none",
-    });
-    canvas.style.width = `${displayW}px`;
-    canvas.style.height = `${displayH}px`;
     canvas.width = displayW * pixelRatio;
     canvas.height = displayH * pixelRatio;
 
     body.appendChild(canvas);
 
-    return { canvas, displayW, displayH };
+    {
+      const obs = new ResizeObserver((entries) => {
+        const { width, height } = entries[0].contentRect;
+        canvas.width = width * pixelRatio;
+        canvas.height = height * pixelRatio;
+      });
+      obs.observe(document.body);
+    }
+
+    return { canvas };
   }
 
   static async gpu(

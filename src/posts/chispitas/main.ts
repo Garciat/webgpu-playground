@@ -11,35 +11,7 @@ import {
 
 import { Screen } from "../../js/display.ts";
 
-import { Force, Particle } from "./types.ts";
-
-const ParticleCount = 100_000;
-const ParticleData = memory.allocate(Particle, ParticleCount);
-{
-  const view = new DataView(ParticleData);
-
-  for (let i = 0; i < ParticleCount; i++) {
-    Particle.fields.position.writeAt(view, i, [Math.random(), Math.random()]);
-    Particle.fields.velocity.writeAt(view, i, [0, 0]);
-    Particle.fields.color.writeAt(view, i, [
-      1,
-      1,
-      1,
-      1,
-    ]);
-  }
-}
-
-const ForceData = memory.allocate(Force, 2);
-{
-  const view = new DataView(ForceData);
-
-  Force.fields.position.writeAt(view, 0, [0.4, 0.5]);
-  Force.fields.value.writeAt(view, 0, 0.01);
-
-  Force.fields.position.writeAt(view, 1, [0.6, 0.5]);
-  Force.fields.value.writeAt(view, 1, 0.01);
-}
+import { Force, Particle, RenderParams } from "./types.ts";
 
 function createBufferFromData(
   device: GPUDevice,
@@ -68,6 +40,32 @@ async function main() {
     },
   );
 
+  const ParticleCount = 10_000;
+  const ParticleData = memory.allocate(Particle, ParticleCount);
+  {
+    const view = new DataView(ParticleData);
+
+    for (let i = 0; i < ParticleCount; ++i) {
+      const x = Math.random() * canvas.width - canvas.width / 2;
+      const y = Math.random() * canvas.height - canvas.height / 2;
+
+      Particle.fields.position.writeAt(view, i, [x, y]);
+      Particle.fields.velocity.writeAt(view, i, [0, 0]);
+      Particle.fields.color.writeAt(view, i, [1, 0, 0, 1]);
+    }
+  }
+
+  const ForceData = memory.allocate(Force, 2);
+  {
+    const view = new DataView(ForceData);
+
+    Force.fields.position.writeAt(view, 0, [200, 0]);
+    Force.fields.value.writeAt(view, 0, -1000);
+
+    Force.fields.position.writeAt(view, 1, [-200, 0]);
+    Force.fields.value.writeAt(view, 1, 1000);
+  }
+
   const gpuComputeTimeKey = "gpu-compute" as const;
   const gpuRenderTimeKey = "gpu-render" as const;
 
@@ -80,7 +78,20 @@ async function main() {
     code: await downloadText(import.meta.resolve("./render.wgsl")),
   });
 
+  const quadVertexBuffer = device.createBuffer({
+    size: 6 * 2 * 4,
+    usage: GPUBufferUsage.VERTEX,
+    mappedAtCreation: true,
+  });
+  // deno-fmt-ignore
+  const vertexData = [
+    -1.0, -1.0, +1.0, -1.0, -1.0, +1.0, -1.0, +1.0, +1.0, -1.0, +1.0, +1.0,
+  ];
+  new Float32Array(quadVertexBuffer.getMappedRange()).set(vertexData);
+  quadVertexBuffer.unmap();
+
   const LocParticle = 0;
+  const LocVertex = LocParticle + 3;
 
   const renderPipeline = device.createRenderPipeline({
     layout: "auto",
@@ -89,6 +100,7 @@ async function main() {
       entryPoint: "vertex_main",
       buffers: [
         {
+          stepMode: "instance",
           attributes: [
             // position
             {
@@ -110,7 +122,18 @@ async function main() {
             },
           ],
           arrayStride: Particle.byteSize,
+        },
+        {
           stepMode: "vertex",
+          attributes: [
+            // vertex
+            {
+              shaderLocation: LocVertex,
+              offset: 0,
+              format: "float32x2",
+            },
+          ],
+          arrayStride: 2 * 4,
         },
       ],
     },
@@ -120,12 +143,41 @@ async function main() {
       targets: [
         {
           format: canvasTextureFormat,
+          blend: {
+            color: {
+              srcFactor: "src-alpha",
+              dstFactor: "one",
+              operation: "add",
+            },
+            alpha: {
+              srcFactor: "zero",
+              dstFactor: "one",
+              operation: "add",
+            },
+          },
         },
       ],
     },
     primitive: {
-      topology: "point-list",
+      topology: "triangle-list",
     },
+  });
+
+  const renderParamsBuffer = device.createBuffer({
+    size: RenderParams.byteSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
+
+  const renderUniformBindGroup = device.createBindGroup({
+    layout: renderPipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: renderParamsBuffer,
+        },
+      },
+    ],
   });
 
   const computePipeline = device.createComputePipeline({
@@ -147,15 +199,11 @@ async function main() {
   const particleBuffers: GPUBuffer[] = new Array(2);
   const particleBindGroups: GPUBindGroup[] = new Array(2);
   for (let i = 0; i < 2; ++i) {
-    particleBuffers[i] = device.createBuffer({
-      size: ParticleData.byteLength,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
-      mappedAtCreation: true,
-    });
-    new Uint8Array(particleBuffers[i].getMappedRange()).set(
-      new Uint8Array(ParticleData),
+    particleBuffers[i] = createBufferFromData(
+      device,
+      ParticleData,
+      GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
     );
-    particleBuffers[i].unmap();
   }
 
   for (let i = 0; i < 2; ++i) {
@@ -227,6 +275,21 @@ async function main() {
 
     const commandEncoder = device.createCommandEncoder();
 
+    // upload data
+    {
+      const renderParamsData = memory.allocate(RenderParams, 1);
+      const view = new DataView(renderParamsData);
+      RenderParams.fields.resolution.writeAt(view, 0, [
+        canvas.width,
+        canvas.height,
+      ]);
+      device.queue.writeBuffer(
+        renderParamsBuffer,
+        0,
+        renderParamsData,
+      );
+    }
+
     // compute pass
     {
       const passEncoder = commandEncoder.beginComputePass(
@@ -245,8 +308,10 @@ async function main() {
       const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
 
       passEncoder.setPipeline(renderPipeline);
+      passEncoder.setBindGroup(0, renderUniformBindGroup);
       passEncoder.setVertexBuffer(0, particleBuffers[(frameIndex + 1) % 2]);
-      passEncoder.draw(ParticleCount);
+      passEncoder.setVertexBuffer(1, quadVertexBuffer);
+      passEncoder.draw(6, ParticleCount, 0, 0);
       passEncoder.end();
     }
 

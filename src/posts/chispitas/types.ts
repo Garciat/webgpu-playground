@@ -10,3 +10,7 @@ export const Force = memory.StructOf({
   position: { index: 0, type: memory.Vec2F },
   value: { index: 1, type: memory.Float32 },
 });
+
+export const RenderParams = memory.StructOf({
+  resolution: { index: 0, type: memory.Vec2F },
+});

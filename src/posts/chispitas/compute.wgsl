@@ -12,7 +12,7 @@ struct Force {
 @binding(1) @group(0) var<storage, read> particlesA : array<Particle>;
 @binding(2) @group(0) var<storage, read_write> particlesB : array<Particle>;
 
-const forceCutOffRadius = 0.01;
+const forceCutOffRadius = 10;
 const friction = 0.05;
 
 @compute @workgroup_size(64)
@@ -28,7 +28,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
     var distance = distance(particle.position, force.position);
     var direction = normalize(force.position - particle.position);
 
-    var g = 0.000001 / (distance * distance);
+    var g = force.value / (distance * distance);
 
     particle.velocity = particle.velocity + direction * g * f32(distance >= forceCutOffRadius);
   }
