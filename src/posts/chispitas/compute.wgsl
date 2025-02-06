@@ -2,6 +2,7 @@ struct SimulationParams {
   deltaTime : f32,
   friction : f32,
   forceCutOffRadius : f32,
+  forceCount : u32,
 }
 struct Particle {
   position : vec2<f32>,
@@ -26,7 +27,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3u) {
 
   particle.position = particle.position + simulation_params.deltaTime * particle.velocity;
 
-  for (var i = 0u; i < arrayLength(&forces); i += 1) {
+  for (var i = 0u; i < simulation_params.forceCount; i += 1) {
     var force = forces[i];
     var distance = distance(particle.position, force.position);
     var direction = normalize(force.position - particle.position);

@@ -20,4 +20,5 @@ export const SimulationParams = memory.StructOf({
   deltaTime: { index: 0, type: memory.Float32 },
   friction: { index: 1, type: memory.Float32 },
   forceCutOffRadius: { index: 2, type: memory.Float32 },
+  forceCount: { index: 3, type: memory.Uint32 },
 });

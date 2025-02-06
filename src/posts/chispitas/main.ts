@@ -208,6 +208,7 @@ async function main() {
     deltaTime: 1,
     friction: 0.05,
     forceCutOffRadius: 10,
+    forceCount: 2,
   };
 
   const simulationParamsBuffer = device.createBuffer({
@@ -344,6 +345,11 @@ async function main() {
           view,
           0,
           simulationParams.forceCutOffRadius,
+        );
+        SimulationParams.fields.forceCount.writeAt(
+          view,
+          0,
+          simulationParams.forceCount,
         );
       }
       device.queue.writeBuffer(
