@@ -1,31 +1,41 @@
-export default ({ search }: Lume.Data, { url }: Lume.Helpers) => {
+export const title = "WebGPU Playground";
+
+export const description =
+  "A collection of graphics programming experiments using WebGPU.";
+
+export default (data: Lume.Data, h: Lume.Helpers) => {
+  const { search } = data;
+
+  const posts = search.pages("type=post", "title=asc");
+
   return (
     <html lang="en">
       <head>
         <meta charset="utf-8" />
 
-        <title>garciat: webgpu-playground</title>
+        <title>{data.title}</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-        <link rel="stylesheet" href={url("/css/index.css")} />
+        <link rel="stylesheet" href={h.url("/css/index.css")} />
       </head>
 
       <body>
         <main>
           <header>
             <h1>
-              garciat: webgpu-playground
+              {data.title}
             </h1>
+            <p>{data.description}</p>
           </header>
           <section>
-            {search.pages("type=post").map((post) => (
+            {posts.map((post) => (
               <article>
                 <header>
                   <h2>{post.title}</h2>
                 </header>
-                <iframe src={url(post.url) + "#timing=no"}></iframe>
+                <iframe src={h.url(post.url) + "#timing=no"}></iframe>
                 <footer>
-                  <a href={url(post.url)}>Open</a>
+                  <a href={h.url(post.url)}>Open</a>
                 </footer>
               </article>
             ))}

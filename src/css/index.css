@@ -1,55 +1,92 @@
+:root {
+  color-scheme: dark;
+
+  --width: 34.5;
+  --rounding: 4px;
+  --color-accent: #268bd2;
+  --color-background: light-dark(#ffffff, #0e0e0e);
+  --color-background-off1: light-dark(#f9f9f9, #202020);
+  --color-background-off2: light-dark(#e5e5e5, #333333);
+  --color-background-off3: light-dark(#9a9a9a, #aaaaaa);
+  --color-background-notice: light-dark(#fffbb4, #2e2e01);
+  --color-text-title: light-dark(#000000, #ffffff);
+  --color-text-main: light-dark(#111111, #eeeeee);
+  --color-text-strong: light-dark(#000000, #ffffff);
+  --color-text-weak: light-dark(#555555, #aaaaaa);
+  --color-text-code: #bf616a;
+}
+
+html {
+  font-family:
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif,
+    Apple Color Emoji,
+    Segoe UI Emoji;
+  font-size: 1.3rem;
+  font-weight: 350;
+  font-size: clamp(18px, 100vw / var(--width), 20px);
+  line-height: 1.5;
+}
+
 body {
   display: flex;
   align-content: center;
 
-  background-color: #111;
-  color: #fff;
+  background-color: var(--color-background);
+  color: var(--color-text-main);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-weight: inherit;
 }
 
 main {
   display: flex;
   flex-direction: column;
   margin: auto;
+  padding: 0 1rem;
   width: 100%;
 }
 
 main > header {
   text-align: center;
+  margin-bottom: 1rem;
 }
 
 section {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+  gap: 2rem;
 }
 
-article {
+section > article {
   position: relative;
-  margin: 1vw;
-  width: 100%;
-  min-width: 300px;
-  max-width: 20vw;
-  border: 1px solid #fff;
+  border: 1px solid var(--color-background-off1);
 }
 
 article > header {
   position: absolute;
-  background-color: #333;
+  background-color: var(--color-background-off1);
 }
 article > header > h2 {
   margin: 0;
-  padding: 0.5vw;
+  padding: 0.5rem 1rem;
 }
 
 article > footer {
-  background-color: #fff;
+  background-color: var(--color-background-off1);
   text-align: center;
 }
 article > footer > a {
   display: block;
   width: 100%;
-  line-height: 3em;
-  color: #000;
+  line-height: 3rem;
+  color: var(--color-text-main);
   text-decoration: none;
 }
 
