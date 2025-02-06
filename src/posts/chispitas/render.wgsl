@@ -1,5 +1,6 @@
 struct RenderParams {
   resolution : vec2f,
+  modelViewProjectionMatrix : mat4x4f,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
@@ -39,7 +40,7 @@ fn vertex_main(vertex : VertexIn) -> VertexOut
   let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * vertex.radius * pixel_scale;
 
   var output : VertexOut;
-  output.position = vec4f(position + sprite, 0, 1);
+  output.position = render_params.modelViewProjectionMatrix * vec4f(position + sprite, 0, 1);
   output.color = vertex.color;
   output.quad_pos = vertex.quad_pos;
   return output;

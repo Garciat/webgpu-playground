@@ -1,3 +1,4 @@
+import { mat4 } from "npm:wgpu-matrix@3.3.0";
 import * as memory from "jsr:@garciat/wgpu-memory@1.2.6";
 
 import { downloadText } from "../../js/utils.ts";
@@ -42,13 +43,31 @@ async function main() {
     },
   );
 
-  function screenToWorldK(k: number): number {
-    return k * pixelRatio;
-  }
+  const renderParams = {
+    world: {
+      get x() {
+        return canvas.width / pixelRatio;
+      },
+      get y() {
+        return canvas.height / pixelRatio;
+      },
+    },
+    worldTranslation: [0, 0],
+    worldScale: 1,
+    mvp: mat4.create(),
+  };
 
   function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
-    const wx = sx * pixelRatio - canvas.width / 2;
-    const wy = canvas.height / 2 - sy * pixelRatio;
+    const cx = sx - canvas.width / pixelRatio / 2;
+    const cy = canvas.height / pixelRatio / 2 - sy;
+
+    // TODO: have to do these inverse transforms because MVP does not include View transform
+    const wx = cx / renderParams.worldScale -
+      renderParams.worldTranslation[0] * renderParams.world.x / 2 /
+        renderParams.worldScale;
+    const wy = cy / renderParams.worldScale -
+      renderParams.worldTranslation[1] * renderParams.world.y / 2 /
+        renderParams.worldScale;
     return [wx, wy];
   }
 
@@ -59,11 +78,11 @@ async function main() {
   {
     const view = new DataView(forceData);
 
-    Force.fields.position.writeAt(view, 0, [screenToWorldK(200), 0]);
-    Force.fields.value.writeAt(view, 0, screenToWorldK(-1000));
+    Force.fields.position.writeAt(view, 0, [200, 0]);
+    Force.fields.value.writeAt(view, 0, -1000);
 
-    Force.fields.position.writeAt(view, 1, [screenToWorldK(-200), 0]);
-    Force.fields.value.writeAt(view, 1, screenToWorldK(1000));
+    Force.fields.position.writeAt(view, 1, [-200, 0]);
+    Force.fields.value.writeAt(view, 1, 1000);
   }
 
   const gpuComputeTimeKey = "gpu-compute" as const;
@@ -169,18 +188,6 @@ async function main() {
     },
   });
 
-  const renderParams = {
-    resolution: {
-      get x() {
-        return canvas.width;
-      },
-      get y() {
-        return canvas.height;
-      },
-    },
-    particleSizePx: 5,
-  };
-
   const renderParamsBuffer = device.createBuffer({
     size: RenderParams.byteSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -211,7 +218,7 @@ async function main() {
   const simulationParams = {
     deltaTime: 1,
     friction: 0.05,
-    forceCutOffRadius: screenToWorldK(10),
+    forceCutOffRadius: 10,
     forceCount: 2,
     particleCount: 0,
   };
@@ -323,7 +330,7 @@ async function main() {
 
           for (let i = 0; i < n; ++i) {
             const angle = Math.random() * Math.PI * 2;
-            const speed = screenToWorldK(5 + Math.random() * 5);
+            const speed = 5 + Math.random() * 5;
 
             const dx = Math.cos(angle) * speed;
             const dy = Math.sin(angle) * speed;
@@ -341,7 +348,7 @@ async function main() {
             Particle.fields.radius.writeAt(
               view,
               offset + i,
-              screenToWorldK(2 + Math.random() * 4),
+              2 + Math.random() * 4,
             );
           }
 
@@ -367,14 +374,24 @@ async function main() {
       {
         const view = new DataView(renderParamsData);
         RenderParams.fields.resolution.writeAt(view, 0, [
-          renderParams.resolution.x,
-          renderParams.resolution.y,
+          renderParams.world.x,
+          renderParams.world.y,
         ]);
-        RenderParams.fields.particleSizePx.writeAt(
-          view,
+        mat4.identity(renderParams.mvp);
+        mat4.translate(renderParams.mvp, [
+          renderParams.worldTranslation[0],
+          renderParams.worldTranslation[1],
           0,
-          renderParams.particleSizePx,
-        );
+        ], renderParams.mvp);
+        mat4.scale(renderParams.mvp, [
+          renderParams.worldScale,
+          renderParams.worldScale,
+          1,
+        ], renderParams.mvp);
+        RenderParams.fields.modelViewProjectionMatrix.viewAt(
+          renderParamsData,
+          0,
+        ).set(renderParams.mvp);
       }
       device.queue.writeBuffer(
         renderParamsBuffer,
@@ -509,6 +526,18 @@ async function main() {
 
   canvas.addEventListener("pointerleave", (event) => {
     pointers.delete(event.pointerId);
+  });
+
+  canvas.addEventListener("wheel", (event) => {
+    event.preventDefault();
+
+    if (event.ctrlKey) {
+      renderParams.worldScale *= 1 - event.deltaY * 0.01;
+    } else {
+      renderParams.worldTranslation[0] -= event.deltaX * 0.005;
+      renderParams.worldTranslation[1] += event.deltaY * 0.005;
+      console.log(renderParams.worldTranslation);
+    }
   });
 }
 
