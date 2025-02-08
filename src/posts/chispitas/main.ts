@@ -109,6 +109,15 @@ async function main() {
     return [xn + t * (xf - xn), yn + t * (yf - yn)];
   }
 
+  // TODO: optimize
+  function getWorldAABB(): [number, number, number, number] {
+    // bottom left
+    const a = screenToWorldXY([0, canvas.clientHeight]);
+    // top right
+    const b = screenToWorldXY([canvas.clientWidth, 0]);
+    return [a[0], a[1], b[0], b[1]];
+  }
+
   const particleCountMax = 1_000_000;
   const particleData = memory.allocate(ParticleStruct, particleCountMax);
 
@@ -254,6 +263,7 @@ async function main() {
   });
 
   const simulationParamsBuffer = device.createBuffer({
+    label: "simulationParamsBuffer",
     size: SimulationParamsStruct.byteSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
@@ -273,6 +283,21 @@ async function main() {
       GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
     );
   }
+
+  const visibleParticlesBuffer = device.createBuffer({
+    label: "visibleParticlesBuffer",
+    size: ParticleStruct.byteSize * particleCountMax,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.VERTEX,
+  });
+
+  const drawIndirectBuffer = device.createBuffer({
+    label: "drawIndirectBuffer",
+    size: 4 * 4,
+    usage: GPUBufferUsage.INDIRECT | GPUBufferUsage.STORAGE |
+      GPUBufferUsage.COPY_DST,
+  });
+
+  const drawIndirectData = new Uint32Array([6, 0, 0, 0]);
 
   for (let i = 0; i < 2; ++i) {
     particleBindGroups[i] = device.createBindGroup({
@@ -307,6 +332,22 @@ async function main() {
             buffer: particleBuffers[(i + 1) % 2],
             offset: 0,
             size: particleData.byteLength,
+          },
+        },
+        {
+          binding: 4,
+          resource: {
+            buffer: visibleParticlesBuffer,
+            offset: 0,
+            size: visibleParticlesBuffer.size,
+          },
+        },
+        {
+          binding: 5,
+          resource: {
+            buffer: drawIndirectBuffer,
+            offset: 0,
+            size: drawIndirectBuffer.size,
           },
         },
       ],
@@ -460,6 +501,7 @@ async function main() {
           0,
           simulationParams.particleCount,
         );
+        SimulationParamsStruct.fields.aabb.writeAt(view, 0, getWorldAABB());
       }
       device.queue.writeBuffer(
         simulationParamsBuffer,
@@ -470,6 +512,9 @@ async function main() {
 
     // compute pass
     {
+      // reset draw indirect buffer
+      device.queue.writeBuffer(drawIndirectBuffer, 0, drawIndirectData);
+
       const passEncoder = commandEncoder.beginComputePass(
         computePassDescriptor,
       );
@@ -489,9 +534,9 @@ async function main() {
 
       passEncoder.setPipeline(renderPipeline);
       passEncoder.setBindGroup(0, renderUniformBindGroup);
-      passEncoder.setVertexBuffer(0, particleBuffers[(frameIndex + 1) % 2]);
+      passEncoder.setVertexBuffer(0, visibleParticlesBuffer);
       passEncoder.setVertexBuffer(1, quadVertexBuffer);
-      passEncoder.draw(6, simulationParams.particleCount, 0, 0);
+      passEncoder.drawIndirect(drawIndirectBuffer, 0);
       passEncoder.end();
     }
 

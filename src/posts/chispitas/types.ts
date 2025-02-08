@@ -24,4 +24,5 @@ export const SimulationParamsStruct = memory.StructOf({
   forceCutOffRadius: { index: 2, type: memory.Float32 },
   forceCount: { index: 3, type: memory.Uint32 },
   particleCount: { index: 4, type: memory.Uint32 },
+  aabb: { index: 5, type: memory.Vec4F },
 });
