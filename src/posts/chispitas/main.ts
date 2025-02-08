@@ -12,7 +12,12 @@ import {
 
 import { Screen } from "../../js/display.ts";
 
-import { Force, Particle, RenderParams, SimulationParams } from "./types.ts";
+import {
+  ForceStruct,
+  ParticleStruct,
+  RenderParamsStruct,
+  SimulationParamsStruct,
+} from "./types.ts";
 
 function createBufferFromData(
   device: GPUDevice,
@@ -105,17 +110,17 @@ async function main() {
   }
 
   const particleCountMax = 1_000_000;
-  const particleData = memory.allocate(Particle, particleCountMax);
+  const particleData = memory.allocate(ParticleStruct, particleCountMax);
 
-  const forceData = memory.allocate(Force, 2);
+  const forceData = memory.allocate(ForceStruct, 2);
   {
     const view = new DataView(forceData);
 
-    Force.fields.position.writeAt(view, 0, [200, 0]);
-    Force.fields.value.writeAt(view, 0, -1000);
+    ForceStruct.fields.position.writeAt(view, 0, [200, 0]);
+    ForceStruct.fields.value.writeAt(view, 0, -1000);
 
-    Force.fields.position.writeAt(view, 1, [-200, 0]);
-    Force.fields.value.writeAt(view, 1, 1000);
+    ForceStruct.fields.position.writeAt(view, 1, [-200, 0]);
+    ForceStruct.fields.value.writeAt(view, 1, 1000);
   }
 
   const gpuComputeTimeKey = "gpu-compute" as const;
@@ -157,29 +162,29 @@ async function main() {
             // position
             {
               shaderLocation: LocParticle + 0,
-              offset: Particle.fields.position.offset,
+              offset: ParticleStruct.fields.position.offset,
               format: "float32x2",
             },
             // velocity
             {
               shaderLocation: LocParticle + 1,
-              offset: Particle.fields.velocity.offset,
+              offset: ParticleStruct.fields.velocity.offset,
               format: "float32x2",
             },
             // color
             {
               shaderLocation: LocParticle + 2,
-              offset: Particle.fields.color.offset,
+              offset: ParticleStruct.fields.color.offset,
               format: "float32x4",
             },
             // radius
             {
               shaderLocation: LocParticle + 3,
-              offset: Particle.fields.radius.offset,
+              offset: ParticleStruct.fields.radius.offset,
               format: "float32",
             },
           ],
-          arrayStride: Particle.byteSize,
+          arrayStride: ParticleStruct.byteSize,
         },
         {
           stepMode: "vertex",
@@ -222,7 +227,7 @@ async function main() {
   });
 
   const renderParamsBuffer = device.createBuffer({
-    size: RenderParams.byteSize,
+    size: RenderParamsStruct.byteSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -249,7 +254,7 @@ async function main() {
   });
 
   const simulationParamsBuffer = device.createBuffer({
-    size: SimulationParams.byteSize,
+    size: SimulationParamsStruct.byteSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
@@ -362,15 +367,15 @@ async function main() {
 
             const a = Math.random() * 0.4 + 0.4;
 
-            Particle.fields.position.writeAt(view, offset + i, position);
-            Particle.fields.velocity.writeAt(view, offset + i, [dx, dy]);
-            Particle.fields.color.writeAt(view, offset + i, [
+            ParticleStruct.fields.position.writeAt(view, offset + i, position);
+            ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
+            ParticleStruct.fields.color.writeAt(view, offset + i, [
               color[0] * a,
               color[1] * a,
               color[2] * a,
               a,
             ]);
-            Particle.fields.radius.writeAt(
+            ParticleStruct.fields.radius.writeAt(
               view,
               offset + i,
               2 + Math.random() * 4,
@@ -383,10 +388,10 @@ async function main() {
 
       device.queue.writeBuffer(
         particleBuffers[frameIndex % 2],
-        simulationParams.particleCount * Particle.byteSize,
+        simulationParams.particleCount * ParticleStruct.byteSize,
         particleData,
         0,
-        offset * Particle.byteSize,
+        offset * ParticleStruct.byteSize,
       );
       simulationParams.particleCount += offset;
     }
@@ -395,7 +400,7 @@ async function main() {
 
     // upload data
     {
-      const renderParamsData = memory.allocate(RenderParams, 1);
+      const renderParamsData = memory.allocate(RenderParamsStruct, 1);
       {
         const out = new DataView(renderParamsData);
 
@@ -405,13 +410,21 @@ async function main() {
 
         mat4.identity(mvp);
         mat4.multiply(projection, view, mvp);
-        RenderParams.fields.modelViewProjectionMatrix.viewAt(
+        RenderParamsStruct.fields.modelViewProjectionMatrix.viewAt(
           renderParamsData,
           0,
         ).set(mvp);
 
-        RenderParams.fields.right.writeAt(out, 0, [view[0], view[4], view[8]]);
-        RenderParams.fields.up.writeAt(out, 0, [view[1], view[5], view[9]]);
+        RenderParamsStruct.fields.right.writeAt(out, 0, [
+          view[0],
+          view[4],
+          view[8],
+        ]);
+        RenderParamsStruct.fields.up.writeAt(out, 0, [
+          view[1],
+          view[5],
+          view[9],
+        ]);
       }
       device.queue.writeBuffer(
         renderParamsBuffer,
@@ -419,30 +432,30 @@ async function main() {
         renderParamsData,
       );
 
-      const simulationParamsData = memory.allocate(SimulationParams, 1);
+      const simulationParamsData = memory.allocate(SimulationParamsStruct, 1);
       {
         const view = new DataView(simulationParamsData);
-        SimulationParams.fields.deltaTime.writeAt(
+        SimulationParamsStruct.fields.deltaTime.writeAt(
           view,
           0,
           simulationParams.deltaTime,
         );
-        SimulationParams.fields.friction.writeAt(
+        SimulationParamsStruct.fields.friction.writeAt(
           view,
           0,
           simulationParams.friction,
         );
-        SimulationParams.fields.forceCutOffRadius.writeAt(
+        SimulationParamsStruct.fields.forceCutOffRadius.writeAt(
           view,
           0,
           simulationParams.forceCutOffRadius,
         );
-        SimulationParams.fields.forceCount.writeAt(
+        SimulationParamsStruct.fields.forceCount.writeAt(
           view,
           0,
           simulationParams.forceCount,
         );
-        SimulationParams.fields.particleCount.writeAt(
+        SimulationParamsStruct.fields.particleCount.writeAt(
           view,
           0,
           simulationParams.particleCount,
