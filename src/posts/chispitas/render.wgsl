@@ -1,9 +1,7 @@
 struct RenderParams {
-  resolution : vec2f,
   modelViewProjectionMatrix : mat4x4f,
   right : vec3f,
   up : vec3f,
-  worldScale : f32,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
@@ -32,7 +30,7 @@ struct FragmentOut {
 fn vertex_main(vertex : VertexIn) -> VertexOut
 {
   let quad_pos = mat2x3f(render_params.right, render_params.up) * vertex.quad_pos;
-  let position = vec3f(vertex.position, 0.0) + quad_pos * vertex.radius / render_params.worldScale;
+  let position = vec3f(vertex.position, 0.0) + quad_pos * vertex.radius;
 
   var output : VertexOut;
   output.position = render_params.modelViewProjectionMatrix * vec4f(position, 1.0);

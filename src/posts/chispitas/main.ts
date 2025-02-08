@@ -1,4 +1,4 @@
-import { mat4 } from "npm:wgpu-matrix@3.3.0";
+import { mat4, vec4 } from "npm:wgpu-matrix@3.3.0";
 import * as memory from "jsr:@garciat/wgpu-memory@1.2.6";
 
 import { downloadText } from "../../js/utils.ts";
@@ -44,43 +44,26 @@ async function main() {
   );
 
   const renderParams = {
-    world: {
-      get x() {
-        return canvas.width / pixelRatio;
-      },
-      get y() {
-        return canvas.height / pixelRatio;
-      },
-    },
-
-    worldScale: 1,
-    worldTranslation: [0, 0],
+    camera: vec4.fromValues(0, 0, -800, 1),
 
     _view: mat4.create(),
     get view() {
       mat4.identity(this._view);
       mat4.translate(this._view, [
-        -this.worldTranslation[0],
-        -this.worldTranslation[1],
-        -500,
-      ], this._view);
-      mat4.scale(this._view, [
-        this.worldScale,
-        this.worldScale,
-        1,
+        -this.camera[0],
+        -this.camera[1],
+        this.camera[2],
       ], this._view);
       return this._view;
     },
 
     _projection: mat4.create(),
     get projection() {
-      mat4.ortho(
-        -this.world.x / 2,
-        this.world.x / 2,
-        -this.world.y / 2,
-        this.world.y / 2,
-        0.1,
-        1000,
+      mat4.perspective(
+        Math.PI / 4,
+        canvas.width / canvas.height,
+        1,
+        100000,
         this._projection,
       );
       return this._projection;
@@ -97,22 +80,28 @@ async function main() {
     particleCount: 0,
   };
 
-  function screenToViewXY([sx, sy]: [number, number]): [number, number] {
-    const cx = sx - canvas.width / pixelRatio / 2;
-    const cy = canvas.height / pixelRatio / 2 - sy;
-    return [cx, cy];
-  }
-
-  function viewToWorldXY([vx, vy]: [number, number]): [number, number] {
-    const wx = (vx + renderParams.worldTranslation[0]) /
-      renderParams.worldScale;
-    const wy = (vy + renderParams.worldTranslation[1]) /
-      renderParams.worldScale;
-    return [wx, wy];
-  }
-
   function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
-    return viewToWorldXY(screenToViewXY([sx, sy]));
+    // screen to NDC
+    const [nx, ny] = [
+      2 * sx / canvas.clientWidth - 1,
+      1 - 2 * sy / canvas.clientHeight,
+    ];
+    const m = mat4.inverse(
+      mat4.multiply(renderParams.projection, renderParams.view),
+    );
+    // near-plane point
+    let [xn, yn, zn, wn] = vec4.transformMat4([nx, ny, 0, 1], m);
+    xn /= wn;
+    yn /= wn;
+    zn /= wn;
+    // far-plane point
+    let [xf, yf, zf, wf] = vec4.transformMat4([nx, ny, 1, 1], m);
+    xf /= wf;
+    yf /= wf;
+    zf /= wf;
+    // return intersection with z = 0 plane
+    const t = -zn / (zf - zn);
+    return [xn + t * (xf - xn), yn + t * (yf - yn)];
   }
 
   const particleCountMax = 1_000_000;
@@ -409,10 +398,6 @@ async function main() {
       const renderParamsData = memory.allocate(RenderParams, 1);
       {
         const out = new DataView(renderParamsData);
-        RenderParams.fields.resolution.writeAt(out, 0, [
-          renderParams.world.x,
-          renderParams.world.y,
-        ]);
 
         const view = renderParams.view;
         const projection = renderParams.projection;
@@ -427,8 +412,6 @@ async function main() {
 
         RenderParams.fields.right.writeAt(out, 0, [view[0], view[4], view[8]]);
         RenderParams.fields.up.writeAt(out, 0, [view[1], view[5], view[9]]);
-
-        RenderParams.fields.worldScale.writeAt(out, 0, renderParams.worldScale);
       }
       device.queue.writeBuffer(
         renderParamsBuffer,
@@ -573,18 +556,19 @@ async function main() {
     event.preventDefault();
 
     if (event.ctrlKey) {
-      renderParams.worldScale *= 1 - event.deltaY * 0.01;
-
-      const [wx, wy] = screenToViewXY([event.offsetX, event.offsetY]);
-      renderParams.worldTranslation[0] += wx;
-      renderParams.worldTranslation[1] += wy;
-      renderParams.worldTranslation[0] *= 1 - event.deltaY * 0.01;
-      renderParams.worldTranslation[1] *= 1 - event.deltaY * 0.01;
-      renderParams.worldTranslation[0] -= wx;
-      renderParams.worldTranslation[1] -= wy;
+      const [wx, wy] = screenToWorldXY([event.clientX, event.clientY]);
+      const dir = vec4.normalize(
+        vec4.subtract(renderParams.camera, [wx, wy, 0, 1]),
+      );
+      vec4.addScaled(
+        renderParams.camera,
+        dir,
+        event.deltaY * (-renderParams.camera[2] / 100),
+        renderParams.camera,
+      );
     } else {
-      renderParams.worldTranslation[0] += event.deltaX;
-      renderParams.worldTranslation[1] -= event.deltaY;
+      renderParams.camera[0] -= event.deltaX * (renderParams.camera[2] / 500);
+      renderParams.camera[1] += event.deltaY * (renderParams.camera[2] / 500);
     }
   });
 }
