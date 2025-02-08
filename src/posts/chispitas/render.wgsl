@@ -1,6 +1,9 @@
 struct RenderParams {
   resolution : vec2f,
   modelViewProjectionMatrix : mat4x4f,
+  right : vec3f,
+  up : vec3f,
+  worldScale : f32,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
@@ -16,9 +19,6 @@ struct VertexIn {
 }
 
 struct VertexOut {
-  // screen space position
-  // x in [-resolution.x/2, resolution.x/2]
-  // y in [-resolution.y/2, resolution.y/2]
   @builtin(position) position : vec4f,
   @location(0) color : vec4f,
   @location(1) quad_pos : vec2f,
@@ -31,16 +31,11 @@ struct FragmentOut {
 @vertex
 fn vertex_main(vertex : VertexIn) -> VertexOut
 {
-  let aspect = render_params.resolution.y / render_params.resolution.x;
-  let pixel_scale = 2/render_params.resolution.y;
-
-  // position in clip space
-  let position = vertex.position / (render_params.resolution/2);
-
-  let sprite = vertex.quad_pos * vec2f(aspect, 1.0) * vertex.radius * pixel_scale;
+  let quad_pos = mat2x3f(render_params.right, render_params.up) * vertex.quad_pos;
+  let position = vec3f(vertex.position, 0.0) + quad_pos * vertex.radius / render_params.worldScale;
 
   var output : VertexOut;
-  output.position = render_params.modelViewProjectionMatrix * vec4f(position + sprite, 0, 1);
+  output.position = render_params.modelViewProjectionMatrix * vec4f(position, 1.0);
   output.color = vertex.color;
   output.quad_pos = vertex.quad_pos;
   return output;

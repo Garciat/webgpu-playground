@@ -15,6 +15,9 @@ export const Force = memory.StructOf({
 export const RenderParams = memory.StructOf({
   resolution: { index: 0, type: memory.Vec2F },
   modelViewProjectionMatrix: { index: 1, type: memory.Mat4x4F },
+  right: { index: 2, type: memory.Vec3F },
+  up: { index: 3, type: memory.Vec3F },
+  worldScale: { index: 4, type: memory.Float32 },
 });
 
 export const SimulationParams = memory.StructOf({

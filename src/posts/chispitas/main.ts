@@ -52,27 +52,81 @@ async function main() {
         return canvas.height / pixelRatio;
       },
     },
-    worldTranslation: [0, 0],
+
     worldScale: 1,
+    worldTranslation: [0, 0],
+
+    _view: mat4.create(),
+    get view() {
+      mat4.identity(this._view);
+      mat4.translate(this._view, [
+        -this.worldTranslation[0],
+        -this.worldTranslation[1],
+        -500,
+      ], this._view);
+      mat4.scale(this._view, [
+        this.worldScale,
+        this.worldScale,
+        1,
+      ], this._view);
+      return this._view;
+    },
+
+    _projection: mat4.create(),
+    get projection() {
+      mat4.perspective(
+        (2 * Math.PI) / 5,
+        this.world.x / this.world.y,
+        0.1,
+        1000,
+        this._projection,
+      );
+      return this._projection;
+    },
+
     mvp: mat4.create(),
   };
+
+  const simulationParams = {
+    deltaTime: 1,
+    friction: 0.05,
+    forceCutOffRadius: 10,
+    forceCount: 2,
+    particleCount: 0,
+  };
+
+  function screenToViewXY([sx, sy]: [number, number]): [number, number] {
+    const cx = sx - canvas.width / pixelRatio / 2;
+    const cy = canvas.height / pixelRatio / 2 - sy;
+    return [cx, cy];
+  }
 
   function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
     const cx = sx - canvas.width / pixelRatio / 2;
     const cy = canvas.height / pixelRatio / 2 - sy;
-
-    // TODO: have to do these inverse transforms because MVP does not include View transform
-    const wx = cx / renderParams.worldScale -
-      renderParams.worldTranslation[0] * renderParams.world.x / 2 /
-        renderParams.worldScale;
-    const wy = cy / renderParams.worldScale -
-      renderParams.worldTranslation[1] * renderParams.world.y / 2 /
-        renderParams.worldScale;
+    const wx = (cx + renderParams.worldTranslation[0]) /
+      renderParams.worldScale;
+    const wy = (cy + renderParams.worldTranslation[1]) /
+      renderParams.worldScale;
     return [wx, wy];
   }
 
   const particleCountMax = 1_000_000;
   const particleData = memory.allocate(Particle, particleCountMax);
+  // {
+  //   const view = new DataView(particleData);
+  //   const n = 10_000;
+  //   for (let i = 0; i < n; ++i) {
+  //     const x = renderParams.world.x * (Math.random() - 0.5);
+  //     const y = renderParams.world.y * (Math.random() - 0.5);
+
+  //     Particle.fields.position.writeAt(view, i, [x, y]);
+  //     Particle.fields.velocity.writeAt(view, i, [0, 0]);
+  //     Particle.fields.color.writeAt(view, i, [1, 1, 0, 1]);
+  //     Particle.fields.radius.writeAt(view, i, 2);
+  //   }
+  //   simulationParams.particleCount = n;
+  // }
 
   const forceData = memory.allocate(Force, 2);
   {
@@ -214,14 +268,6 @@ async function main() {
       entryPoint: "main",
     },
   });
-
-  const simulationParams = {
-    deltaTime: 1,
-    friction: 0.05,
-    forceCutOffRadius: 10,
-    forceCount: 2,
-    particleCount: 0,
-  };
 
   const simulationParamsBuffer = device.createBuffer({
     size: SimulationParams.byteSize,
@@ -372,26 +418,27 @@ async function main() {
     {
       const renderParamsData = memory.allocate(RenderParams, 1);
       {
-        const view = new DataView(renderParamsData);
-        RenderParams.fields.resolution.writeAt(view, 0, [
+        const out = new DataView(renderParamsData);
+        RenderParams.fields.resolution.writeAt(out, 0, [
           renderParams.world.x,
           renderParams.world.y,
         ]);
-        mat4.identity(renderParams.mvp);
-        mat4.translate(renderParams.mvp, [
-          renderParams.worldTranslation[0],
-          renderParams.worldTranslation[1],
-          0,
-        ], renderParams.mvp);
-        mat4.scale(renderParams.mvp, [
-          renderParams.worldScale,
-          renderParams.worldScale,
-          1,
-        ], renderParams.mvp);
+
+        const view = renderParams.view;
+        const projection = renderParams.projection;
+        const mvp = renderParams.mvp;
+
+        mat4.identity(mvp);
+        mat4.multiply(projection, view, mvp);
         RenderParams.fields.modelViewProjectionMatrix.viewAt(
           renderParamsData,
           0,
-        ).set(renderParams.mvp);
+        ).set(mvp);
+
+        RenderParams.fields.right.writeAt(out, 0, [view[0], view[4], view[8]]);
+        RenderParams.fields.up.writeAt(out, 0, [view[1], view[5], view[9]]);
+
+        RenderParams.fields.worldScale.writeAt(out, 0, renderParams.worldScale);
       }
       device.queue.writeBuffer(
         renderParamsBuffer,
@@ -533,10 +580,17 @@ async function main() {
 
     if (event.ctrlKey) {
       renderParams.worldScale *= 1 - event.deltaY * 0.01;
+
+      const [wx, wy] = screenToViewXY([event.offsetX, event.offsetY]);
+      renderParams.worldTranslation[0] += wx;
+      renderParams.worldTranslation[1] += wy;
+      renderParams.worldTranslation[0] *= 1 - event.deltaY * 0.01;
+      renderParams.worldTranslation[1] *= 1 - event.deltaY * 0.01;
+      renderParams.worldTranslation[0] -= wx;
+      renderParams.worldTranslation[1] -= wy;
     } else {
-      renderParams.worldTranslation[0] -= event.deltaX * 0.005;
-      renderParams.worldTranslation[1] += event.deltaY * 0.005;
-      console.log(renderParams.worldTranslation);
+      renderParams.worldTranslation[0] += event.deltaX;
+      renderParams.worldTranslation[1] -= event.deltaY;
     }
   });
 }
