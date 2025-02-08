@@ -74,9 +74,18 @@ async function main() {
 
     _projection: mat4.create(),
     get projection() {
-      mat4.perspective(
-        (2 * Math.PI) / 5,
-        this.world.x / this.world.y,
+      // mat4.perspective(
+      //   (2 * Math.PI) / 4,
+      //   this.world.x / this.world.y,
+      //   0.1,
+      //   1000,
+      //   this._projection,
+      // );
+      mat4.ortho(
+        -this.world.x / 2,
+        this.world.x / 2,
+        -this.world.y / 2,
+        this.world.y / 2,
         0.1,
         1000,
         this._projection,
@@ -101,14 +110,16 @@ async function main() {
     return [cx, cy];
   }
 
-  function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
-    const cx = sx - canvas.width / pixelRatio / 2;
-    const cy = canvas.height / pixelRatio / 2 - sy;
-    const wx = (cx + renderParams.worldTranslation[0]) /
+  function viewToWorldXY([vx, vy]: [number, number]): [number, number] {
+    const wx = (vx + renderParams.worldTranslation[0]) /
       renderParams.worldScale;
-    const wy = (cy + renderParams.worldTranslation[1]) /
+    const wy = (vy + renderParams.worldTranslation[1]) /
       renderParams.worldScale;
     return [wx, wy];
+  }
+
+  function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
+    return viewToWorldXY(screenToViewXY([sx, sy]));
   }
 
   const particleCountMax = 1_000_000;
