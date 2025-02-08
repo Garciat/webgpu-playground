@@ -586,6 +586,10 @@ async function main() {
     pointers.delete(event.pointerId);
   });
 
+  canvas.addEventListener("contextmenu", (event) => {
+    event.preventDefault();
+  });
+
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
 
