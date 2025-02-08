@@ -35,7 +35,7 @@ async function main() {
     pixelRatio,
   );
 
-  const { device, context, canvasTextureFormat } = await Screen.gpu(
+  const { device, context } = await Screen.gpu(
     navigator.gpu,
     canvas,
     {
@@ -74,13 +74,6 @@ async function main() {
 
     _projection: mat4.create(),
     get projection() {
-      // mat4.perspective(
-      //   (2 * Math.PI) / 4,
-      //   this.world.x / this.world.y,
-      //   0.1,
-      //   1000,
-      //   this._projection,
-      // );
       mat4.ortho(
         -this.world.x / 2,
         this.world.x / 2,
@@ -124,20 +117,6 @@ async function main() {
 
   const particleCountMax = 1_000_000;
   const particleData = memory.allocate(Particle, particleCountMax);
-  // {
-  //   const view = new DataView(particleData);
-  //   const n = 10_000;
-  //   for (let i = 0; i < n; ++i) {
-  //     const x = renderParams.world.x * (Math.random() - 0.5);
-  //     const y = renderParams.world.y * (Math.random() - 0.5);
-
-  //     Particle.fields.position.writeAt(view, i, [x, y]);
-  //     Particle.fields.velocity.writeAt(view, i, [0, 0]);
-  //     Particle.fields.color.writeAt(view, i, [1, 1, 0, 1]);
-  //     Particle.fields.radius.writeAt(view, i, 2);
-  //   }
-  //   simulationParams.particleCount = n;
-  // }
 
   const forceData = memory.allocate(Force, 2);
   {
@@ -232,7 +211,7 @@ async function main() {
       entryPoint: "fragment_main",
       targets: [
         {
-          format: canvasTextureFormat,
+          format: context.getCurrentTexture().format,
           blend: {
             color: {
               srcFactor: "src-alpha",
