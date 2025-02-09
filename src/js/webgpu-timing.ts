@@ -78,7 +78,7 @@ export class TimingManager<Descriptor extends GPUTimingDescriptor> {
     });
 
     this.#fps.addSample(1 / frameTime);
-    this.#js.addSample(jsTime);
+    this.#js.addSample(jsTime * 1000);
 
     return {
       fps: this.#fps.get(),
@@ -124,7 +124,7 @@ export class TimingValuesDisplay {
   display(timingValues: TimingValues) {
     this.#textNode.nodeValue = `\
 fps: ${timingValues.fps.toFixed(1)}
-js: ${timingValues.js.toFixed(3)}ms
+js: ${timingValues.js.toFixed(1)}µs
 ${this.formatGPUTimes(timingValues.gpu)}
 `;
   }

@@ -13,24 +13,12 @@ import {
 import { Screen } from "../../js/display.ts";
 
 import {
+  CullParamsStruct,
   ForceStruct,
   ParticleStruct,
   RenderParamsStruct,
   SimulationParamsStruct,
 } from "./types.ts";
-
-function createBufferFromData(
-  device: GPUDevice,
-  data: ArrayBuffer,
-  usage: GPUBufferUsageFlags,
-) {
-  const buffer = device.createBuffer({
-    size: data.byteLength,
-    usage: usage | GPUBufferUsage.COPY_DST,
-  });
-  device.queue.writeBuffer(buffer, 0, data);
-  return buffer;
-}
 
 async function main() {
   const pixelRatio = globalThis.devicePixelRatio;
@@ -120,6 +108,20 @@ async function main() {
 
   const particleCountMax = 1_000_000;
   const particleData = memory.allocate(ParticleStruct, particleCountMax);
+  {
+    const n = 10_000;
+    const aabb = getWorldAABB();
+    const view = new DataView(particleData);
+    for (let i = 0; i < n; ++i) {
+      const x = aabb[0] + Math.random() * (aabb[2] - aabb[0]);
+      const y = aabb[1] + Math.random() * (aabb[3] - aabb[1]);
+      ParticleStruct.fields.position.writeAt(view, i, [x, y]);
+      ParticleStruct.fields.velocity.writeAt(view, i, [0, 0]);
+      ParticleStruct.fields.color.writeAt(view, i, [0.5, 0.5, 0, 0.5]);
+      ParticleStruct.fields.radius.writeAt(view, i, 4);
+    }
+    simulationParams.particleCount = n;
+  }
 
   const forceData = memory.allocate(ForceStruct, 2);
   {
@@ -132,11 +134,13 @@ async function main() {
     ForceStruct.fields.value.writeAt(view, 1, 1000);
   }
 
-  const gpuComputeTimeKey = "gpu-compute" as const;
+  const gpuSimTimeKey = "gpu-sim" as const;
+  const gpuCullTimeKey = "gpu-cull" as const;
   const gpuRenderTimeKey = "gpu-render" as const;
 
   const gpuTimingAdapter = createGPUTimingAdapter(device, {
-    [gpuComputeTimeKey]: {},
+    [gpuSimTimeKey]: {},
+    [gpuCullTimeKey]: {},
     [gpuRenderTimeKey]: {},
   });
 
@@ -160,6 +164,7 @@ async function main() {
   const LocVertex = LocParticle + 4;
 
   const renderPipeline = device.createRenderPipeline({
+    label: "renderPipeline",
     layout: "auto",
     vertex: {
       module: renderModule,
@@ -236,11 +241,13 @@ async function main() {
   });
 
   const renderParamsBuffer = device.createBuffer({
+    label: "renderParamsBuffer",
     size: RenderParamsStruct.byteSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
   const renderUniformBindGroup = device.createBindGroup({
+    label: "renderUniformBindGroup",
     layout: renderPipeline.getBindGroupLayout(0),
     entries: [
       {
@@ -252,11 +259,12 @@ async function main() {
     ],
   });
 
-  const computePipeline = device.createComputePipeline({
+  const simulationComputePipeline = device.createComputePipeline({
+    label: "simulationComputePipeline",
     layout: "auto",
     compute: {
       module: device.createShaderModule({
-        code: await downloadText(import.meta.resolve("./compute.wgsl")),
+        code: await downloadText(import.meta.resolve("./sim.compute.wgsl")),
       }),
       entryPoint: "main",
     },
@@ -268,21 +276,84 @@ async function main() {
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
 
-  const forceBuffer = createBufferFromData(
-    device,
-    forceData,
-    GPUBufferUsage.STORAGE,
-  );
+  const forceBuffer = device.createBuffer({
+    label: "forceBuffer",
+    size: forceData.byteLength,
+    usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+  });
+  device.queue.writeBuffer(forceBuffer, 0, forceData);
 
   const particleBuffers: GPUBuffer[] = new Array(2);
-  const particleBindGroups: GPUBindGroup[] = new Array(2);
   for (let i = 0; i < 2; ++i) {
-    particleBuffers[i] = createBufferFromData(
-      device,
-      particleData,
-      GPUBufferUsage.VERTEX | GPUBufferUsage.STORAGE,
-    );
+    particleBuffers[i] = device.createBuffer({
+      label: `particleBuffer[${i}]`,
+      size: particleData.byteLength,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(particleBuffers[i], 0, particleData);
   }
+
+  const simulationBindGroupFixed = device.createBindGroup({
+    label: "simulationBindGroupFixed",
+    layout: simulationComputePipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: simulationParamsBuffer,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: forceBuffer,
+        },
+      },
+    ],
+  });
+
+  const simulationBindGroupPingPong = new Array<GPUBindGroup>(2);
+  for (let i = 0; i < 2; ++i) {
+    simulationBindGroupPingPong[i] = device.createBindGroup({
+      label: `simulationBindGroupPingPong[${i}]`,
+      layout: simulationComputePipeline.getBindGroupLayout(1),
+      entries: [
+        {
+          binding: 0,
+          resource: {
+            buffer: particleBuffers[i],
+            offset: 0,
+            size: particleData.byteLength,
+          },
+        },
+        {
+          binding: 1,
+          resource: {
+            buffer: particleBuffers[(i + 1) % 2],
+            offset: 0,
+            size: particleData.byteLength,
+          },
+        },
+      ],
+    });
+  }
+
+  const cullComputePipeline = device.createComputePipeline({
+    label: "cullComputePipeline",
+    layout: "auto",
+    compute: {
+      module: device.createShaderModule({
+        code: await downloadText(import.meta.resolve("./cull.compute.wgsl")),
+      }),
+      entryPoint: "main",
+    },
+  });
+
+  const cullParamsBuffer = device.createBuffer({
+    label: "cullParamsBuffer",
+    size: CullParamsStruct.byteSize,
+    usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+  });
 
   const visibleParticlesBuffer = device.createBuffer({
     label: "visibleParticlesBuffer",
@@ -297,57 +368,43 @@ async function main() {
       GPUBufferUsage.COPY_DST,
   });
 
-  const drawIndirectData = new Uint32Array([6, 0, 0, 0]);
+  const cullBindGroupFixed = device.createBindGroup({
+    label: "cullBindGroupFixed",
+    layout: cullComputePipeline.getBindGroupLayout(0),
+    entries: [
+      {
+        binding: 0,
+        resource: {
+          buffer: cullParamsBuffer,
+        },
+      },
+      {
+        binding: 1,
+        resource: {
+          buffer: visibleParticlesBuffer,
+        },
+      },
+      {
+        binding: 2,
+        resource: {
+          buffer: drawIndirectBuffer,
+        },
+      },
+    ],
+  });
 
+  const cullBindGroupPingPong = new Array<GPUBindGroup>(2);
   for (let i = 0; i < 2; ++i) {
-    particleBindGroups[i] = device.createBindGroup({
-      label: `particleBindGroup${i}`,
-      layout: computePipeline.getBindGroupLayout(0),
+    cullBindGroupPingPong[i] = device.createBindGroup({
+      label: `cullBindGroupPingPong[${i}]`,
+      layout: cullComputePipeline.getBindGroupLayout(1),
       entries: [
         {
           binding: 0,
           resource: {
-            buffer: simulationParamsBuffer,
-          },
-        },
-        {
-          binding: 1,
-          resource: {
-            buffer: forceBuffer,
-            offset: 0,
-            size: forceData.byteLength,
-          },
-        },
-        {
-          binding: 2,
-          resource: {
-            buffer: particleBuffers[i],
-            offset: 0,
-            size: particleData.byteLength,
-          },
-        },
-        {
-          binding: 3,
-          resource: {
             buffer: particleBuffers[(i + 1) % 2],
             offset: 0,
             size: particleData.byteLength,
-          },
-        },
-        {
-          binding: 4,
-          resource: {
-            buffer: visibleParticlesBuffer,
-            offset: 0,
-            size: visibleParticlesBuffer.size,
-          },
-        },
-        {
-          binding: 5,
-          resource: {
-            buffer: drawIndirectBuffer,
-            offset: 0,
-            size: drawIndirectBuffer.size,
           },
         },
       ],
@@ -358,15 +415,22 @@ async function main() {
     new RollingAverage(),
     new RollingAverage(),
     {
-      [gpuComputeTimeKey]: new RollingAverage(),
+      [gpuSimTimeKey]: new RollingAverage(),
+      [gpuCullTimeKey]: new RollingAverage(),
       [gpuRenderTimeKey]: new RollingAverage(),
     },
   );
 
   const timingDisplay = new TimingValuesDisplay(document.body);
 
-  const computePassDescriptor = {
-    ...gpuTimingAdapter.getPassDescriptorMixin(gpuComputeTimeKey),
+  const simulationComputePassDescriptor = {
+    label: "simulationComputePass",
+    ...gpuTimingAdapter.getPassDescriptorMixin(gpuSimTimeKey),
+  };
+
+  const cullComputePassDescriptor = {
+    lable: "cullComputePass",
+    ...gpuTimingAdapter.getPassDescriptorMixin(gpuCullTimeKey),
   };
 
   const renderPassColorAttachment: GPURenderPassColorAttachment = {
@@ -377,154 +441,202 @@ async function main() {
   };
 
   const renderPassDescriptor = {
+    label: "renderPass",
     colorAttachments: [
       renderPassColorAttachment,
     ],
     ...gpuTimingAdapter.getPassDescriptorMixin(gpuRenderTimeKey),
   };
 
+  const renderParamsData = memory.allocate(RenderParamsStruct, 1);
+  const simulationParamsData = memory.allocate(SimulationParamsStruct, 1);
+  const cullParamsData = memory.allocate(CullParamsStruct, 1);
+  const drawIndirectData = new Uint32Array([6, 0, 0, 0]);
+
   let frameIndex = 0;
+
+  function generateParticles() {
+    const view = new DataView(particleData);
+    const n = 20;
+    let offset = 0;
+
+    for (const pointer of pointers.values()) {
+      if (pointer.isDown) {
+        const color = hslaToRgba([pointer.hue * 360, 1, 0.5, 1]);
+        const position = screenToWorldXY(pointer.position);
+
+        for (let i = 0; i < n; ++i) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = 5 + Math.random() * 5;
+
+          const dx = Math.cos(angle) * speed;
+          const dy = Math.sin(angle) * speed;
+
+          const a = Math.random() * 0.4 + 0.4;
+
+          ParticleStruct.fields.position.writeAt(view, offset + i, position);
+          ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
+          ParticleStruct.fields.color.writeAt(view, offset + i, [
+            color[0] * a,
+            color[1] * a,
+            color[2] * a,
+            a,
+          ]);
+          ParticleStruct.fields.radius.writeAt(
+            view,
+            offset + i,
+            2 + Math.random() * 4,
+          );
+        }
+
+        offset += n;
+      }
+    }
+
+    device.queue.writeBuffer(
+      particleBuffers[frameIndex % 2],
+      simulationParams.particleCount * ParticleStruct.byteSize,
+      particleData,
+      0,
+      offset * ParticleStruct.byteSize,
+    );
+    simulationParams.particleCount += offset;
+  }
+
+  function updateSimulationParams() {
+    const out = new DataView(simulationParamsData);
+
+    SimulationParamsStruct.fields.deltaTime.writeAt(
+      out,
+      0,
+      simulationParams.deltaTime,
+    );
+    SimulationParamsStruct.fields.friction.writeAt(
+      out,
+      0,
+      simulationParams.friction,
+    );
+    SimulationParamsStruct.fields.forceCutOffRadius.writeAt(
+      out,
+      0,
+      simulationParams.forceCutOffRadius,
+    );
+    SimulationParamsStruct.fields.forceCount.writeAt(
+      out,
+      0,
+      simulationParams.forceCount,
+    );
+    SimulationParamsStruct.fields.particleCount.writeAt(
+      out,
+      0,
+      simulationParams.particleCount,
+    );
+
+    device.queue.writeBuffer(
+      simulationParamsBuffer,
+      0,
+      simulationParamsData,
+    );
+  }
+
+  function updateCullParams() {
+    const out = new DataView(cullParamsData);
+
+    CullParamsStruct.fields.particleCount.writeAt(
+      out,
+      0,
+      simulationParams.particleCount,
+    );
+    CullParamsStruct.fields.aabb.writeAt(out, 0, getWorldAABB());
+
+    device.queue.writeBuffer(
+      cullParamsBuffer,
+      0,
+      cullParamsData,
+    );
+
+    // reset draw indirect buffer
+    device.queue.writeBuffer(
+      drawIndirectBuffer,
+      0,
+      drawIndirectData,
+    );
+  }
+
+  function updateRenderParams() {
+    const out = new DataView(renderParamsData);
+
+    const view = renderParams.view;
+    const projection = renderParams.projection;
+    const mvp = renderParams.mvp;
+
+    mat4.identity(mvp);
+    mat4.multiply(projection, view, mvp);
+    RenderParamsStruct.fields.modelViewProjectionMatrix.viewAt(
+      renderParamsData,
+      0,
+    ).set(mvp);
+
+    RenderParamsStruct.fields.right.writeAt(out, 0, [
+      view[0],
+      view[4],
+      view[8],
+    ]);
+    RenderParamsStruct.fields.up.writeAt(out, 0, [
+      view[1],
+      view[5],
+      view[9],
+    ]);
+
+    device.queue.writeBuffer(
+      renderParamsBuffer,
+      0,
+      renderParamsData,
+    );
+  }
 
   function frame(timestamp: DOMHighResTimeStamp) {
     timing.beginFrame(timestamp);
 
-    // generate particles on pointer down
+    generateParticles();
+
+    const commandEncoder = device.createCommandEncoder({
+      label: "frame",
+    });
+
+    updateSimulationParams();
+
+    // compute pass: simulation
     {
-      const view = new DataView(particleData);
-      const n = 20;
-      let offset = 0;
-
-      for (const pointer of pointers.values()) {
-        if (pointer.isDown) {
-          const color = hslaToRgba([pointer.hue * 360, 1, 0.5, 1]);
-          const position = screenToWorldXY(pointer.position);
-
-          for (let i = 0; i < n; ++i) {
-            const angle = Math.random() * Math.PI * 2;
-            const speed = 5 + Math.random() * 5;
-
-            const dx = Math.cos(angle) * speed;
-            const dy = Math.sin(angle) * speed;
-
-            const a = Math.random() * 0.4 + 0.4;
-
-            ParticleStruct.fields.position.writeAt(view, offset + i, position);
-            ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
-            ParticleStruct.fields.color.writeAt(view, offset + i, [
-              color[0] * a,
-              color[1] * a,
-              color[2] * a,
-              a,
-            ]);
-            ParticleStruct.fields.radius.writeAt(
-              view,
-              offset + i,
-              2 + Math.random() * 4,
-            );
-          }
-
-          offset += n;
-        }
-      }
-
-      device.queue.writeBuffer(
-        particleBuffers[frameIndex % 2],
-        simulationParams.particleCount * ParticleStruct.byteSize,
-        particleData,
-        0,
-        offset * ParticleStruct.byteSize,
-      );
-      simulationParams.particleCount += offset;
-    }
-
-    const commandEncoder = device.createCommandEncoder();
-
-    // upload data
-    {
-      const renderParamsData = memory.allocate(RenderParamsStruct, 1);
-      {
-        const out = new DataView(renderParamsData);
-
-        const view = renderParams.view;
-        const projection = renderParams.projection;
-        const mvp = renderParams.mvp;
-
-        mat4.identity(mvp);
-        mat4.multiply(projection, view, mvp);
-        RenderParamsStruct.fields.modelViewProjectionMatrix.viewAt(
-          renderParamsData,
-          0,
-        ).set(mvp);
-
-        RenderParamsStruct.fields.right.writeAt(out, 0, [
-          view[0],
-          view[4],
-          view[8],
-        ]);
-        RenderParamsStruct.fields.up.writeAt(out, 0, [
-          view[1],
-          view[5],
-          view[9],
-        ]);
-      }
-      device.queue.writeBuffer(
-        renderParamsBuffer,
-        0,
-        renderParamsData,
-      );
-
-      const simulationParamsData = memory.allocate(SimulationParamsStruct, 1);
-      {
-        const view = new DataView(simulationParamsData);
-        SimulationParamsStruct.fields.deltaTime.writeAt(
-          view,
-          0,
-          simulationParams.deltaTime,
-        );
-        SimulationParamsStruct.fields.friction.writeAt(
-          view,
-          0,
-          simulationParams.friction,
-        );
-        SimulationParamsStruct.fields.forceCutOffRadius.writeAt(
-          view,
-          0,
-          simulationParams.forceCutOffRadius,
-        );
-        SimulationParamsStruct.fields.forceCount.writeAt(
-          view,
-          0,
-          simulationParams.forceCount,
-        );
-        SimulationParamsStruct.fields.particleCount.writeAt(
-          view,
-          0,
-          simulationParams.particleCount,
-        );
-        SimulationParamsStruct.fields.aabb.writeAt(view, 0, getWorldAABB());
-      }
-      device.queue.writeBuffer(
-        simulationParamsBuffer,
-        0,
-        simulationParamsData,
-      );
-    }
-
-    // compute pass
-    {
-      // reset draw indirect buffer
-      device.queue.writeBuffer(drawIndirectBuffer, 0, drawIndirectData);
-
       const passEncoder = commandEncoder.beginComputePass(
-        computePassDescriptor,
+        simulationComputePassDescriptor,
       );
-      passEncoder.setPipeline(computePipeline);
-      passEncoder.setBindGroup(0, particleBindGroups[frameIndex % 2]);
+      passEncoder.setPipeline(simulationComputePipeline);
+      passEncoder.setBindGroup(0, simulationBindGroupFixed);
+      passEncoder.setBindGroup(1, simulationBindGroupPingPong[frameIndex % 2]);
       passEncoder.dispatchWorkgroups(
         Math.ceil(simulationParams.particleCount / 64),
       );
       passEncoder.end();
     }
+
+    updateCullParams();
+
+    // compute pass: cull
+    {
+      const passEncoder = commandEncoder.beginComputePass(
+        cullComputePassDescriptor,
+      );
+      passEncoder.setPipeline(cullComputePipeline);
+      passEncoder.setBindGroup(0, cullBindGroupFixed);
+      passEncoder.setBindGroup(1, cullBindGroupPingPong[frameIndex % 2]);
+      passEncoder.dispatchWorkgroups(
+        Math.ceil(simulationParams.particleCount / 64),
+      );
+      passEncoder.end();
+    }
+
+    updateRenderParams();
 
     // render pass
     {
