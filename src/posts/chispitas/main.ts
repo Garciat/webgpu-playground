@@ -37,33 +37,46 @@ async function main() {
   );
 
   const renderParams = {
-    camera: vec4.fromValues(0, 0, -800, 1),
-
-    _view: mat4.create(),
-    get view() {
-      mat4.identity(this._view);
-      mat4.translate(this._view, [
-        -this.camera[0],
-        -this.camera[1],
-        this.camera[2],
-      ], this._view);
-      return this._view;
+    camera: {
+      position: vec4.fromValues(0, 0, -800, 1),
     },
 
-    _projection: mat4.create(),
-    get projection() {
+    view: mat4.create(),
+    viewUpdate() {
+      mat4.identity(this.view);
+      mat4.translate(this.view, [
+        -this.camera.position[0],
+        -this.camera.position[1],
+        this.camera.position[2],
+      ], this.view);
+    },
+
+    projection: mat4.create(),
+    projectionUpdate() {
       mat4.perspective(
         Math.PI / 4,
         canvas.width / canvas.height,
         1,
         100000,
-        this._projection,
+        this.projection,
       );
-      return this._projection;
     },
 
     mvp: mat4.create(),
+    mvp_inverse: mat4.create(),
+    mvpUpdate() {
+      this.viewUpdate();
+      mat4.multiply(this.projection, this.view, this.mvp);
+      mat4.invert(this.mvp, this.mvp_inverse);
+    },
   };
+
+  {
+    const listener = new ResizeObserver(() => {
+      renderParams.projectionUpdate();
+    });
+    listener.observe(canvas);
+  }
 
   const simulationParams = {
     deltaTime: 1,
@@ -79,16 +92,19 @@ async function main() {
       2 * sx / canvas.clientWidth - 1,
       1 - 2 * sy / canvas.clientHeight,
     ];
-    const m = mat4.inverse(
-      mat4.multiply(renderParams.projection, renderParams.view),
-    );
     // near-plane point
-    let [xn, yn, zn, wn] = vec4.transformMat4([nx, ny, 0, 1], m);
+    let [xn, yn, zn, wn] = vec4.transformMat4(
+      [nx, ny, 0, 1],
+      renderParams.mvp_inverse,
+    );
     xn /= wn;
     yn /= wn;
     zn /= wn;
     // far-plane point
-    let [xf, yf, zf, wf] = vec4.transformMat4([nx, ny, 1, 1], m);
+    let [xf, yf, zf, wf] = vec4.transformMat4(
+      [nx, ny, 1, 1],
+      renderParams.mvp_inverse,
+    );
     xf /= wf;
     yf /= wf;
     zf /= wf;
@@ -566,26 +582,22 @@ async function main() {
   function updateRenderParams() {
     const out = new DataView(renderParamsData);
 
-    const view = renderParams.view;
-    const projection = renderParams.projection;
-    const mvp = renderParams.mvp;
+    renderParams.mvpUpdate();
 
-    mat4.identity(mvp);
-    mat4.multiply(projection, view, mvp);
     RenderParamsStruct.fields.modelViewProjectionMatrix.viewAt(
       renderParamsData,
       0,
-    ).set(mvp);
+    ).set(renderParams.mvp);
 
     RenderParamsStruct.fields.right.writeAt(out, 0, [
-      view[0],
-      view[4],
-      view[8],
+      renderParams.view[0],
+      renderParams.view[4],
+      renderParams.view[8],
     ]);
     RenderParamsStruct.fields.up.writeAt(out, 0, [
-      view[1],
-      view[5],
-      view[9],
+      renderParams.view[1],
+      renderParams.view[5],
+      renderParams.view[9],
     ]);
 
     device.queue.writeBuffer(
@@ -725,20 +737,27 @@ async function main() {
   canvas.addEventListener("wheel", (event) => {
     event.preventDefault();
 
-    if (event.ctrlKey) {
+    if (event.ctrlKey) { // zoom
+      // current mouse position in world space
       const [wx, wy] = screenToWorldXY([event.clientX, event.clientY]);
+      // direction from camera to mouse (order determines zoom in/out)
       const dir = vec4.normalize(
-        vec4.subtract(renderParams.camera, [wx, wy, 0, 1]),
+        vec4.subtract([wx, wy, 0, 1], renderParams.camera.position),
       );
+      // zoom factor
+      const factor = renderParams.camera.position[2] / 100;
+      const length = event.deltaY * factor;
+      // move camera in direction of mouse
       vec4.addScaled(
-        renderParams.camera,
+        renderParams.camera.position,
         dir,
-        event.deltaY * (-renderParams.camera[2] / 100),
-        renderParams.camera,
+        length,
+        renderParams.camera.position,
       );
-    } else {
-      renderParams.camera[0] -= event.deltaX * (renderParams.camera[2] / 500);
-      renderParams.camera[1] += event.deltaY * (renderParams.camera[2] / 500);
+    } else { // pan
+      const factor = renderParams.camera.position[2] / 500;
+      renderParams.camera.position[0] -= event.deltaX * factor;
+      renderParams.camera.position[1] += event.deltaY * factor;
     }
   });
 }
