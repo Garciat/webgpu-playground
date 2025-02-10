@@ -208,6 +208,10 @@ async function main() {
     particleCount += particleDataIndex;
     particleDataIndex = 0;
   }
+  function clearParticles() {
+    particleCount = 0;
+    particleDataIndex = 0;
+  }
 
   const forceCountMax = 100;
   const forceData = memory.allocate(ForceStruct, forceCountMax);
@@ -609,7 +613,20 @@ async function main() {
       A: 1,
       Y: 2,
       X: 3,
+      L: 4,
+      R: 5,
+      ZL: 6,
       ZR: 7,
+      MINUS: 8,
+      PLUS: 9,
+      LCLICK: 10,
+      RCLICK: 11,
+      DUP: 12,
+      DDOWN: 13,
+      DLEFT: 14,
+      DRIGHT: 15,
+      HOME: 16,
+      CAPTURE: 17,
     },
   } as const;
 
@@ -638,6 +655,9 @@ async function main() {
       }
       if (actual.buttons[ControllerLayouts.SwitchPro.ZR].pressed) {
         generateParticles(20, [cx, cy], Math.random());
+      }
+      if (actual.buttons[ControllerLayouts.SwitchPro.MINUS].pressed) {
+        clearParticles();
       }
 
       {
