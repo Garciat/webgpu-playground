@@ -86,8 +86,6 @@ async function main() {
     deltaTime: 1,
     friction: 0.05,
     forceCutOffRadius: 10,
-    forceCount: 2,
-    particleCount: 0,
   };
 
   function screenToWorldXY([sx, sy]: [number, number]): [number, number] {
@@ -128,40 +126,139 @@ async function main() {
 
   const particleCountMax = 1_000_000;
   const particleData = memory.allocate(ParticleStruct, particleCountMax);
-  {
-    const n = 10_000;
+  const particleDataView = new DataView(particleData);
+  let particleCount = 0;
+  let particleDataIndex = 0;
+  function particleAdd(
+    position: [number, number],
+    velocity: [number, number],
+    color: [number, number, number, number],
+    radius: number,
+  ) {
+    // TODO: check for overflow
+
+    ParticleStruct.fields.position.writeAt(
+      particleDataView,
+      particleDataIndex,
+      position,
+    );
+    ParticleStruct.fields.velocity.writeAt(
+      particleDataView,
+      particleDataIndex,
+      velocity,
+    );
+    ParticleStruct.fields.color.writeAt(
+      particleDataView,
+      particleDataIndex,
+      color,
+    );
+    ParticleStruct.fields.radius.writeAt(
+      particleDataView,
+      particleDataIndex,
+      radius,
+    );
+
+    particleDataIndex += 1;
+  }
+  function generateParticles(
+    n: number,
+    position: [number, number],
+    hue: number,
+  ) {
+    const color = hslaToRgba([hue * 360, 1, 0.5, 1]);
+
+    for (let i = 0; i < n; ++i) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 5 + Math.random() * 5;
+
+      const dx = Math.cos(angle) * speed;
+      const dy = Math.sin(angle) * speed;
+
+      const alpha = Math.random() * 0.4 + 0.4;
+
+      const radius = 2 + Math.random() * 4;
+
+      particleAdd(position, [dx, dy], rgbaApplyAlpha(color, alpha), radius);
+    }
+  }
+  function fillScreenWithParticles(n: number) {
     const aabb = getWorldAABB();
     const w = aabb[2] - aabb[0];
     const h = aabb[3] - aabb[1];
     const a_ref = vec2.fromValues(1, 1);
-    const view = new DataView(particleData);
+
     for (let i = 0; i < n; ++i) {
       const x = aabb[0] + Math.random() * w;
       const y = aabb[1] + Math.random() * h;
       const a = vec2.angle([x, y], a_ref);
       const color = hslaToRgba([a * 180 / Math.PI, 1, 0.5, 1]);
       const alpha = Math.random() * 0.4 + 0.4;
-      ParticleStruct.fields.position.writeAt(view, i, [x, y]);
-      ParticleStruct.fields.velocity.writeAt(view, i, [0, 0]);
-      ParticleStruct.fields.color.writeAt(
-        view,
-        i,
-        rgbaApplyAlpha(color, alpha),
-      );
-      ParticleStruct.fields.radius.writeAt(view, i, 4);
+
+      particleAdd([x, y], [0, 0], rgbaApplyAlpha(color, alpha), 4);
     }
-    simulationParams.particleCount = n;
+  }
+  function particleAddFlush(buffer: GPUBuffer) {
+    device.queue.writeBuffer(
+      buffer,
+      particleCount * ParticleStruct.byteSize,
+      particleData,
+      0,
+      particleDataIndex * ParticleStruct.byteSize,
+    );
+    particleCount += particleDataIndex;
+    particleDataIndex = 0;
   }
 
-  const forceData = memory.allocate(ForceStruct, 2);
-  {
-    const view = new DataView(forceData);
+  const forceCountMax = 100;
+  const forceData = memory.allocate(ForceStruct, forceCountMax);
+  const forceDataView = new DataView(forceData);
+  let forceCount = 0;
+  let forceDataIndex = 0;
+  function forceAdd(position: [number, number], value: number) {
+    if (!canAddForce(position)) {
+      return;
+    }
 
-    ForceStruct.fields.position.writeAt(view, 0, [200, 0]);
-    ForceStruct.fields.value.writeAt(view, 0, -1000);
+    ForceStruct.fields.position.writeAt(
+      forceDataView,
+      forceDataIndex,
+      position,
+    );
+    ForceStruct.fields.value.writeAt(forceDataView, forceDataIndex, value);
 
-    ForceStruct.fields.position.writeAt(view, 1, [-200, 0]);
-    ForceStruct.fields.value.writeAt(view, 1, 1000);
+    forceDataIndex = (forceDataIndex + 1) % forceCountMax;
+    forceCount = Math.min(
+      forceCount + 1,
+      forceCountMax,
+    );
+  }
+  function forceAddFlush(buffer: GPUBuffer) {
+    device.queue.writeBuffer(
+      buffer,
+      0,
+      forceData,
+      0,
+      forceCount * ForceStruct.byteSize,
+    );
+  }
+  function canAddForce([x, y]: [number, number]) {
+    if (forceCount > 0) {
+      // last force position
+      const [px, py] = ForceStruct.fields.position.readAt(
+        forceDataView,
+        forceDataIndex === 0 ? forceCountMax - 1 : forceDataIndex - 1,
+      );
+      const d = vec2.distance([x, y], [px, py]);
+      // don't add forces if too close to last one
+      if (d < 10) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function clearForces() {
+    forceCount = 0;
+    forceDataIndex = 0;
   }
 
   const gpuSimTimeKey = "gpu-sim" as const;
@@ -483,74 +580,74 @@ async function main() {
   const cullParamsData = memory.allocate(CullParamsStruct, 1);
   const drawIndirectData = new Uint32Array([6, 0, 0, 0]);
 
-  let frameIndex = 0;
+  // initial scene
+  {
+    fillScreenWithParticles(10_000);
 
-  function generateParticles(
-    view: DataView,
-    offset: number,
-    n: number,
-    position: [number, number],
-    hue: number,
-  ) {
-    const color = hslaToRgba([hue * 360, 1, 0.5, 1]);
+    particleAddFlush(particleBuffers[0]);
 
-    for (let i = 0; i < n; ++i) {
-      const angle = Math.random() * Math.PI * 2;
-      const speed = 5 + Math.random() * 5;
+    forceAdd([-200, 0], 1000);
+    forceAdd([200, 0], -1000);
 
-      const dx = Math.cos(angle) * speed;
-      const dy = Math.sin(angle) * speed;
-
-      const alpha = Math.random() * 0.4 + 0.4;
-
-      ParticleStruct.fields.position.writeAt(view, offset + i, position);
-      ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
-      ParticleStruct.fields.color.writeAt(
-        view,
-        offset + i,
-        rgbaApplyAlpha(color, alpha),
-      );
-      ParticleStruct.fields.radius.writeAt(
-        view,
-        offset + i,
-        2 + Math.random() * 4,
-      );
-    }
+    forceAddFlush(forceBuffer);
   }
 
-  function generateParticlesForPointers() {
-    const view = new DataView(particleData);
-    const n = 20;
-    let offset = 0;
+  let frameIndex = 0;
 
+  function handlePointers() {
     for (const pointer of pointers.values()) {
       if (pointer.isDown) {
         const position = screenToWorldXY(pointer.position);
-        generateParticles(view, offset, n, position, pointer.hue);
-        offset += n;
+        generateParticles(20, position, pointer.hue);
       }
     }
+  }
+
+  const ControllerLayouts = {
+    SwitchPro: {
+      B: 0,
+      A: 1,
+      Y: 2,
+      X: 3,
+      ZR: 7,
+    },
+  } as const;
+
+  function handleGamepads() {
+    const [cx, cy] = renderParams.camera.position;
 
     for (const gamepad of gamepads.values()) {
       const actual = navigator.getGamepads()[gamepad.index];
       if (actual === null) {
         continue;
       }
-      if (actual.buttons[0].pressed || actual.buttons[7].pressed) {
-        const [x, y] = renderParams.camera.position;
-        generateParticles(view, offset, n, [x, y], Math.random());
-        offset += n;
+
+      // assuming Switch Pro Controller
+
+      if (actual.buttons[ControllerLayouts.SwitchPro.B].pressed) {
+        forceAdd([cx, cy], 1000);
+      }
+      if (actual.buttons[ControllerLayouts.SwitchPro.A].pressed) {
+        forceAdd([cx, cy], -1000);
+      }
+      if (actual.buttons[ControllerLayouts.SwitchPro.Y].pressed) {
+        fillScreenWithParticles(1_000);
+      }
+      if (actual.buttons[ControllerLayouts.SwitchPro.X].pressed) {
+        clearForces();
+      }
+      if (actual.buttons[ControllerLayouts.SwitchPro.ZR].pressed) {
+        generateParticles(20, [cx, cy], Math.random());
+      }
+
+      {
+        const factor = -renderParams.camera.position[2] / 50;
+        const [ax, ay, _bx, by] = actual.axes;
+        renderParams.camera.position[0] += ax * factor;
+        renderParams.camera.position[1] -= ay * factor;
+        renderParams.camera.position[2] -= by * factor;
       }
     }
-
-    device.queue.writeBuffer(
-      particleBuffers[frameIndex % 2],
-      simulationParams.particleCount * ParticleStruct.byteSize,
-      particleData,
-      0,
-      offset * ParticleStruct.byteSize,
-    );
-    simulationParams.particleCount += offset;
   }
 
   function updateSimulationParams() {
@@ -574,12 +671,12 @@ async function main() {
     SimulationParamsStruct.fields.forceCount.writeAt(
       out,
       0,
-      simulationParams.forceCount,
+      forceCount,
     );
     SimulationParamsStruct.fields.particleCount.writeAt(
       out,
       0,
-      simulationParams.particleCount,
+      particleCount,
     );
 
     device.queue.writeBuffer(
@@ -595,7 +692,7 @@ async function main() {
     CullParamsStruct.fields.particleCount.writeAt(
       out,
       0,
-      simulationParams.particleCount,
+      particleCount,
     );
     CullParamsStruct.fields.aabb.writeAt(out, 0, getWorldAABB());
 
@@ -633,7 +730,12 @@ async function main() {
   function frame(timestamp: DOMHighResTimeStamp) {
     timing.beginFrame(timestamp);
 
-    generateParticlesForPointers();
+    handlePointers();
+
+    handleGamepads();
+
+    particleAddFlush(particleBuffers[frameIndex % 2]);
+    forceAddFlush(forceBuffer);
 
     const commandEncoder = device.createCommandEncoder({
       label: "frame",
@@ -650,7 +752,7 @@ async function main() {
       passEncoder.setBindGroup(0, simulationBindGroupFixed);
       passEncoder.setBindGroup(1, simulationBindGroupPingPong[frameIndex % 2]);
       passEncoder.dispatchWorkgroups(
-        Math.ceil(simulationParams.particleCount / 64),
+        Math.ceil(particleCount / 64),
       );
       passEncoder.end();
     }
@@ -666,22 +768,9 @@ async function main() {
       passEncoder.setBindGroup(0, cullBindGroupFixed);
       passEncoder.setBindGroup(1, cullBindGroupPingPong[frameIndex % 2]);
       passEncoder.dispatchWorkgroups(
-        Math.ceil(simulationParams.particleCount / 64),
+        Math.ceil(particleCount / 64),
       );
       passEncoder.end();
-    }
-
-    {
-      if (gamepads.size > 0) {
-        const gp = navigator.getGamepads()[0];
-        if (gp) {
-          const factor = -renderParams.camera.position[2] / 50;
-          const [ax, ay, _bx, by] = gp.axes;
-          renderParams.camera.position[0] += ax * factor;
-          renderParams.camera.position[1] -= ay * factor;
-          renderParams.camera.position[2] -= by * factor;
-        }
-      }
     }
 
     updateRenderParams();
