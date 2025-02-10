@@ -90,30 +90,28 @@ export class TimingManager<Descriptor extends GPUTimingDescriptor> {
 
 export class TimingValuesDisplay {
   #style = {
-    // contain: "strict",
-    // width: CSS.em(8),
-    // height: CSS.em(3.5),
     overflow: "hidden",
     position: "absolute",
     top: 0,
     left: 0,
-    margin: 0,
-    padding: CSS.em(0.5),
     "background-color": "rgba(0, 0, 0, 1)",
-    color: "white",
-    "font-size": "10px",
   };
 
-  #element: HTMLElement;
-  #textNode: Text;
+  #element: HTMLCanvasElement;
+  #context: CanvasRenderingContext2D;
+
+  #counter = -10; // warm up frames to skip N/A lines
+  #lineBase = 0;
+  #lineHeight = 0;
 
   constructor(parent: HTMLElement) {
-    this.#element = document.createElement("pre");
+    this.#element = document.createElement("canvas");
+    this.#element.width = 0;
+    this.#element.height = 0;
     Styles.set(this.#element, this.#style);
     parent.appendChild(this.#element);
 
-    this.#textNode = document.createTextNode("");
-    this.#element.appendChild(this.#textNode);
+    this.#context = this.#element.getContext("2d")!;
 
     // HACK
     if (isEmbedded()) {
@@ -122,17 +120,58 @@ export class TimingValuesDisplay {
   }
 
   display(timingValues: TimingValues) {
-    this.#textNode.nodeValue = `\
-fps: ${timingValues.fps.toFixed(1)}
-js: ${timingValues.js.toFixed(1)}µs
-${this.formatGPUTimes(timingValues.gpu)}
-`;
+    const lines = [
+      `fps: ${timingValues.fps.toFixed(1)}`,
+      `js: ${timingValues.js.toFixed(1)}µs`,
+      ...this.formatGPUTimes(timingValues.gpu),
+    ];
+
+    if (this.#counter++ % 60 === 0) {
+      this.#resize(lines);
+    }
+
+    this.#context.clearRect(0, 0, this.#element.width, this.#element.height);
+    this.#context.fillStyle = "white";
+    this.#context.font = "10px monospace";
+
+    for (let i = 0; i < lines.length; i++) {
+      this.#context.fillText(
+        lines[i],
+        0,
+        this.#lineBase + i * this.#lineHeight,
+      );
+    }
   }
 
   formatGPUTimes(times: Record<string, number>) {
     return Object.entries(times).map(([key, time]) =>
       `${key}: ${isNaN(time) ? "N/A" : `${time.toFixed(1)}µs`}`
-    ).join("\n");
+    );
+  }
+
+  #resize(lines: string[]) {
+    let [boxWidth, boxHeight, lineHeight, lineBase] = [0, 0, 0, 0];
+    for (const line of lines) {
+      const metrics = this.#context.measureText(line);
+      const height = metrics.actualBoundingBoxAscent +
+        metrics.actualBoundingBoxDescent;
+
+      boxWidth = Math.max(boxWidth, metrics.width);
+      boxHeight += height;
+      lineHeight = Math.max(lineHeight, height);
+      lineBase = metrics.actualBoundingBoxAscent;
+    }
+
+    this.#element.width = boxWidth * globalThis.devicePixelRatio;
+    this.#element.height = boxHeight * globalThis.devicePixelRatio;
+    this.#element.style.width = `${boxWidth}px`;
+    this.#element.style.height = `${boxHeight}px`;
+    this.#context.scale(
+      globalThis.devicePixelRatio,
+      globalThis.devicePixelRatio,
+    );
+    this.#lineHeight = lineHeight;
+    this.#lineBase = lineBase;
   }
 }
 
