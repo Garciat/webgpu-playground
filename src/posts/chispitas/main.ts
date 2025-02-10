@@ -71,6 +71,10 @@ async function main() {
     },
   };
 
+  // initial setup
+  renderParams.projectionUpdate();
+  renderParams.mvpUpdate();
+
   {
     const listener = new ResizeObserver(() => {
       renderParams.projectionUpdate();
