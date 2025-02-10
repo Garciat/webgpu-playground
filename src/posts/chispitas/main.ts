@@ -485,39 +485,60 @@ async function main() {
 
   let frameIndex = 0;
 
-  function generateParticles() {
+  function generateParticles(
+    view: DataView,
+    offset: number,
+    n: number,
+    position: [number, number],
+    hue: number,
+  ) {
+    const color = hslaToRgba([hue * 360, 1, 0.5, 1]);
+
+    for (let i = 0; i < n; ++i) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 5 + Math.random() * 5;
+
+      const dx = Math.cos(angle) * speed;
+      const dy = Math.sin(angle) * speed;
+
+      const alpha = Math.random() * 0.4 + 0.4;
+
+      ParticleStruct.fields.position.writeAt(view, offset + i, position);
+      ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
+      ParticleStruct.fields.color.writeAt(
+        view,
+        offset + i,
+        rgbaApplyAlpha(color, alpha),
+      );
+      ParticleStruct.fields.radius.writeAt(
+        view,
+        offset + i,
+        2 + Math.random() * 4,
+      );
+    }
+  }
+
+  function generateParticlesForPointers() {
     const view = new DataView(particleData);
     const n = 20;
     let offset = 0;
 
     for (const pointer of pointers.values()) {
       if (pointer.isDown) {
-        const color = hslaToRgba([pointer.hue * 360, 1, 0.5, 1]);
         const position = screenToWorldXY(pointer.position);
+        generateParticles(view, offset, n, position, pointer.hue);
+        offset += n;
+      }
+    }
 
-        for (let i = 0; i < n; ++i) {
-          const angle = Math.random() * Math.PI * 2;
-          const speed = 5 + Math.random() * 5;
-
-          const dx = Math.cos(angle) * speed;
-          const dy = Math.sin(angle) * speed;
-
-          const alpha = Math.random() * 0.4 + 0.4;
-
-          ParticleStruct.fields.position.writeAt(view, offset + i, position);
-          ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
-          ParticleStruct.fields.color.writeAt(
-            view,
-            offset + i,
-            rgbaApplyAlpha(color, alpha),
-          );
-          ParticleStruct.fields.radius.writeAt(
-            view,
-            offset + i,
-            2 + Math.random() * 4,
-          );
-        }
-
+    for (const gamepad of gamepads.values()) {
+      const actual = navigator.getGamepads()[gamepad.index];
+      if (actual === null) {
+        continue;
+      }
+      if (actual.buttons[0].pressed || actual.buttons[7].pressed) {
+        const [x, y] = renderParams.camera.position;
+        generateParticles(view, offset, n, [x, y], Math.random());
         offset += n;
       }
     }
@@ -612,7 +633,7 @@ async function main() {
   function frame(timestamp: DOMHighResTimeStamp) {
     timing.beginFrame(timestamp);
 
-    generateParticles();
+    generateParticlesForPointers();
 
     const commandEncoder = device.createCommandEncoder({
       label: "frame",
@@ -648,6 +669,19 @@ async function main() {
         Math.ceil(simulationParams.particleCount / 64),
       );
       passEncoder.end();
+    }
+
+    {
+      if (gamepads.size > 0) {
+        const gp = navigator.getGamepads()[0];
+        if (gp) {
+          const factor = -renderParams.camera.position[2] / 50;
+          const [ax, ay, _bx, by] = gp.axes;
+          renderParams.camera.position[0] += ax * factor;
+          renderParams.camera.position[1] -= ay * factor;
+          renderParams.camera.position[2] -= by * factor;
+        }
+      }
     }
 
     updateRenderParams();
@@ -761,6 +795,24 @@ async function main() {
       renderParams.camera.position[0] -= event.deltaX * factor;
       renderParams.camera.position[1] += event.deltaY * factor;
     }
+  });
+
+  const gamepads = new Map<number, Gamepad>();
+
+  globalThis.addEventListener("gamepadconnected", (event) => {
+    console.log(
+      "Gamepad connected at index %d: %s. %d buttons, %d axes.",
+      event.gamepad.index,
+      event.gamepad.id,
+      event.gamepad.buttons.length,
+      event.gamepad.axes.length,
+    );
+    gamepads.set(event.gamepad.index, event.gamepad);
+  });
+
+  globalThis.addEventListener("gamepaddisconnected", (event) => {
+    console.log("Gamepad disconnected from index %d: %s", event.gamepad.index);
+    gamepads.delete(event.gamepad.index);
   });
 }
 
