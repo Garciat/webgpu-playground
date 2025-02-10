@@ -1,4 +1,4 @@
-import { mat4, vec4 } from "npm:wgpu-matrix@3.3.0";
+import { mat4, vec2, vec4 } from "npm:wgpu-matrix@3.3.0";
 import * as memory from "jsr:@garciat/wgpu-memory@1.2.6";
 
 import { downloadText } from "../../js/utils.ts";
@@ -131,13 +131,23 @@ async function main() {
   {
     const n = 10_000;
     const aabb = getWorldAABB();
+    const w = aabb[2] - aabb[0];
+    const h = aabb[3] - aabb[1];
+    const a_ref = vec2.fromValues(1, 1);
     const view = new DataView(particleData);
     for (let i = 0; i < n; ++i) {
-      const x = aabb[0] + Math.random() * (aabb[2] - aabb[0]);
-      const y = aabb[1] + Math.random() * (aabb[3] - aabb[1]);
+      const x = aabb[0] + Math.random() * w;
+      const y = aabb[1] + Math.random() * h;
+      const a = vec2.angle([x, y], a_ref);
+      const color = hslaToRgba([a * 180 / Math.PI, 1, 0.5, 1]);
+      const alpha = Math.random() * 0.4 + 0.4;
       ParticleStruct.fields.position.writeAt(view, i, [x, y]);
       ParticleStruct.fields.velocity.writeAt(view, i, [0, 0]);
-      ParticleStruct.fields.color.writeAt(view, i, [0.5, 0.5, 0, 0.5]);
+      ParticleStruct.fields.color.writeAt(
+        view,
+        i,
+        rgbaApplyAlpha(color, alpha),
+      );
       ParticleStruct.fields.radius.writeAt(view, i, 4);
     }
     simulationParams.particleCount = n;
@@ -492,16 +502,15 @@ async function main() {
           const dx = Math.cos(angle) * speed;
           const dy = Math.sin(angle) * speed;
 
-          const a = Math.random() * 0.4 + 0.4;
+          const alpha = Math.random() * 0.4 + 0.4;
 
           ParticleStruct.fields.position.writeAt(view, offset + i, position);
           ParticleStruct.fields.velocity.writeAt(view, offset + i, [dx, dy]);
-          ParticleStruct.fields.color.writeAt(view, offset + i, [
-            color[0] * a,
-            color[1] * a,
-            color[2] * a,
-            a,
-          ]);
+          ParticleStruct.fields.color.writeAt(
+            view,
+            offset + i,
+            rgbaApplyAlpha(color, alpha),
+          );
           ParticleStruct.fields.radius.writeAt(
             view,
             offset + i,
@@ -756,6 +765,13 @@ async function main() {
 }
 
 await main();
+
+function rgbaApplyAlpha(
+  [r, g, b, a]: [number, number, number, number],
+  alpha: number,
+): [number, number, number, number] {
+  return [r * alpha, g * alpha, b * alpha, a * alpha];
+}
 
 function hslaToRgba(
   [h, s, l, a]: [number, number, number, number],
