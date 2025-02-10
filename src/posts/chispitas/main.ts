@@ -580,7 +580,7 @@ async function main() {
   }
 
   function updateRenderParams() {
-    const out = new DataView(renderParamsData);
+    const _out = new DataView(renderParamsData);
 
     renderParams.mvpUpdate();
 
@@ -588,17 +588,6 @@ async function main() {
       renderParamsData,
       0,
     ).set(renderParams.mvp);
-
-    RenderParamsStruct.fields.right.writeAt(out, 0, [
-      renderParams.view[0],
-      renderParams.view[4],
-      renderParams.view[8],
-    ]);
-    RenderParamsStruct.fields.up.writeAt(out, 0, [
-      renderParams.view[1],
-      renderParams.view[5],
-      renderParams.view[9],
-    ]);
 
     device.queue.writeBuffer(
       renderParamsBuffer,

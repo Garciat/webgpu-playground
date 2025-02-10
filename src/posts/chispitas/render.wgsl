@@ -1,7 +1,5 @@
 struct RenderParams {
   modelViewProjectionMatrix : mat4x4f,
-  right : vec3f,
-  up : vec3f,
 }
 
 @binding(0) @group(0) var<uniform> render_params : RenderParams;
@@ -29,11 +27,10 @@ struct FragmentOut {
 @vertex
 fn vertex_main(vertex : VertexIn) -> VertexOut
 {
-  let quad_pos = mat2x3f(render_params.right, render_params.up) * vertex.quad_pos;
-  let position = vec3f(vertex.position, 0.0) + quad_pos * vertex.radius;
+  let position = vertex.position + vertex.quad_pos * vertex.radius;
 
   var output : VertexOut;
-  output.position = render_params.modelViewProjectionMatrix * vec4f(position, 1.0);
+  output.position = render_params.modelViewProjectionMatrix * vec4f(position, 0.0, 1.0);
   output.color = vertex.color;
   output.quad_pos = vertex.quad_pos;
   return output;
